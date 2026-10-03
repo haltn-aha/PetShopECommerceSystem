@@ -83,8 +83,9 @@ public class OrderProcessController {
                               @RequestParam String reason,
                               RedirectAttributes redirectAttributes) {
         try {
+            // Reject order -> OrderService will restore the stock quantity
             orderService.staffRejectOrder(id, userDetails.getId(), reason);
-            redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn hàng và hoàn tồn kho!");
+            redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn hàng và số lượng tồn kho đã được hoàn lại!");
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
