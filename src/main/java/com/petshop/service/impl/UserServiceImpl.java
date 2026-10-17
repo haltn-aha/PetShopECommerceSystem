@@ -21,6 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -52,13 +58,57 @@ public class UserServiceImpl implements UserService {
         User user = findById(userId);
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            user.setPhone(request.getPhone().trim());
+            String newPhone = request.getPhone().trim();
+            userRepository.findByPhone(newPhone).ifPresent(other -> {
+                if (!other.getId().equals(userId)) {
+                    throw new IllegalArgumentException("Số điện thoại này đã được sử dụng bởi một tài khoản khác.");
+                }
+            });
+            user.setPhone(newPhone);
         }
-        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
-            user.setAvatarUrl(request.getAvatarUrl().trim());
+        if (request.getAvatarUrl() != null) {
+            String avatar = request.getAvatarUrl().trim();
+            user.setAvatarUrl(avatar.isEmpty() ? null : avatar);
         }
         userRepository.save(user);
         log.info("Updated profile for user ID: {}", userId);
+    }
+
+    @Override
+    @Transactional
+    public void updateAvatar(Long userId, MultipartFile file) {
+        User user = findById(userId);
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn một tệp hình ảnh để tải lên.");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Định dạng tệp không hợp lệ. Vui lòng chọn tệp hình ảnh (JPG, PNG, GIF, WEBP,...).");
+        }
+
+        try {
+            Path uploadDir = Paths.get("uploads", "avatars");
+            if (!Files.exists(uploadDir)) {
+                Files.createDirectories(uploadDir);
+            }
+
+            String ext = ".jpg";
+            String origName = file.getOriginalFilename();
+            if (origName != null && origName.contains(".")) {
+                ext = origName.substring(origName.lastIndexOf("."));
+            }
+            String fileName = "avatar_" + userId + "_" + System.currentTimeMillis() + ext;
+            Path targetPath = uploadDir.resolve(fileName);
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+
+            user.setAvatarUrl("/uploads/avatars/" + fileName);
+            userRepository.save(user);
+            log.info("Updated avatar image for user ID: {} -> {}", userId, user.getAvatarUrl());
+        } catch (IOException e) {
+            log.error("Failed to save avatar image for user ID {}", userId, e);
+            throw new RuntimeException("Không thể lưu ảnh đại diện trên máy chủ. Vui lòng thử lại sau.");
+        }
     }
 
     @Override

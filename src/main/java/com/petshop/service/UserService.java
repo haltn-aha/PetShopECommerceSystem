@@ -15,6 +15,7 @@ public interface UserService {
     User findById(Long id);
     User findByEmail(String email);
     void updateProfile(Long userId, ProfileUpdateRequestDto request);
+    void updateAvatar(Long userId, org.springframework.web.multipart.MultipartFile file);
     void changePassword(Long userId, PasswordChangeRequestDto request);
 
     List<UserAddress> getCustomerAddresses(Long customerId);

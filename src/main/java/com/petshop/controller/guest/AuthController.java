@@ -120,8 +120,12 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public String sendResetToken(@RequestParam String email, RedirectAttributes redirectAttributes) {
-        authService.initiatePasswordReset(email);
-        redirectAttributes.addFlashAttribute("infoMessage", "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đi.");
+        try {
+            authService.initiatePasswordReset(email);
+            redirectAttributes.addFlashAttribute("infoMessage", "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi tới " + email + ". Vui lòng kiểm tra hộp thư (kể cả Spam).");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/forgot-password";
     }
 
@@ -141,6 +145,12 @@ public class AuthController {
                                        @RequestParam String confirmPassword,
                                        RedirectAttributes redirectAttributes,
                                        Model model) {
+        if (newPassword == null || newPassword.length() < 6) {
+            model.addAttribute("token", token);
+            model.addAttribute("errorMessage", "Mật khẩu mới phải có tối thiểu 6 ký tự.");
+            return "guest/reset-password";
+        }
+
         if (!newPassword.equals(confirmPassword)) {
             model.addAttribute("token", token);
             model.addAttribute("errorMessage", "Mật khẩu xác nhận không khớp.");

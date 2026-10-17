@@ -38,6 +38,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "classpath:/META-INF/resources/webjars/"
                 )
                 .setCachePeriod(0); // Cache disabled during development for instant updates
+
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:uploads/")
+                .setCachePeriod(0);
     }
 
     /**

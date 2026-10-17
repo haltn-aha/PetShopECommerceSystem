@@ -167,7 +167,9 @@ public class AuthServiceImpl implements AuthService {
                     .expiresAt(LocalDateTime.now().plusMinutes(30))
                     .build();
             tokenRepository.save(resetToken);
-            log.info("Created reset token for user ID {}. Raw token (simulated email delivery): {}", user.getId(), rawToken);
+            String link = baseUrl + "/reset-password?token=" + rawToken;
+            emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), link);
+            log.info("Sent password reset email for user ID {}. Link: {}", user.getId(), link);
         });
     }
 

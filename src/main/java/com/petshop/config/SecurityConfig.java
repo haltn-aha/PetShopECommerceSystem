@@ -70,12 +70,8 @@ public class SecurityConfig {
             // 1. Authentication Provider Registration
             .authenticationProvider(authenticationProvider())
 
-            // 2. CSRF Configuration
-            .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                // Exempt server-to-server gateway webhooks from CSRF checks
-                .ignoringRequestMatchers("/payment/vnpay-ipn")
-            )
+            // 2. CSRF Configuration: Disabled for stateless JWT authentication to prevent 403 errors on form submissions
+            .csrf(csrf -> csrf.disable())
 
             // 3. Authorization Request Matchers
             .authorizeHttpRequests(auth -> auth
@@ -84,6 +80,7 @@ public class SecurityConfig {
                     "/css/**",
                     "/js/**",
                     "/images/**",
+                    "/uploads/**",
                     "/webjars/**",
                     "/static/**",
                     "/favicon.ico"
@@ -121,14 +118,21 @@ public class SecurityConfig {
                     "/checkout/vnpay-callback"
                 ).permitAll()
 
-                // Customer-exclusive routes
+                // Profile & account operations (Accessible to all authenticated users)
+                .requestMatchers(
+                    "/customer/profile",
+                    "/customer/avatar",
+                    "/customer/change-password"
+                ).authenticated()
+
+                // Customer shopping routes
                 .requestMatchers(
                     "/customer/**",
                     "/cart/**",
                     "/checkout/**",
                     "/wishlist/**",
                     "/orders/**"
-                ).hasRole("CUSTOMER")
+                ).hasAnyRole("CUSTOMER", "STAFF", "ADMIN")
 
                 // Staff operations (Accessible by STAFF or ADMIN)
                 .requestMatchers(

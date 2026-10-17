@@ -18,14 +18,22 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
     Optional<Order> findByOrderCode(String orderCode);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"items"})
     Page<Order> findByCustomerIdOrderByCreatedAtDesc(Long customerId, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"items"})
     Page<Order> findByCustomerIdAndOrderStatusOrderByCreatedAtDesc(Long customerId, OrderStatus status, Pageable pageable);
+
     Page<Order> findByOrderStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
+
+    long countByCustomerId(Long customerId);
+    long countByCustomerIdAndOrderStatus(Long customerId, OrderStatus status);
 
     @Query("SELECT COUNT(o) FROM Order o WHERE o.customer.id = :customerId AND o.voucher.id = :voucherId AND o.orderStatus <> com.petshop.entity.enums.OrderStatus.CANCELLED")
     long countVoucherUsageByCustomer(@Param("customerId") Long customerId, @Param("voucherId") Long voucherId);
 
     @Query("SELECT o FROM Order o " +
+           "LEFT JOIN FETCH o.customer c " +
            "LEFT JOIN FETCH o.items i " +
            "LEFT JOIN FETCH i.variant v " +
            "LEFT JOIN FETCH v.product " +

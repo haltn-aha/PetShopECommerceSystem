@@ -18,6 +18,9 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     Optional<ProductVariant> findBySkuCode(String skuCode);
     boolean existsBySkuCode(String skuCode);
 
+    @Query("SELECT pv FROM ProductVariant pv JOIN FETCH pv.product WHERE pv.skuCode = :skuCode")
+    Optional<ProductVariant> findBySkuCodeWithProduct(@Param("skuCode") String skuCode);
+
     List<ProductVariant> findByProductIdAndStatus(Long productId, ProductVariantStatus status);
     List<ProductVariant> findByProductId(Long productId);
 

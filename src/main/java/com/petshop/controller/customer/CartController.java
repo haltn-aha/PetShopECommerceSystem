@@ -45,13 +45,31 @@ public class CartController {
     }
 
     @PostMapping("/update")
-    public String updateQuantity(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                 @RequestParam Long itemId,
-                                 @RequestParam int quantity,
-                                 HttpSession session) {
-        CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
-        session.setAttribute("cartCount", cart.getTotalQuantity());
-        return "redirect:/cart";
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<?> updateQuantity(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam Long itemId,
+            @RequestParam int quantity,
+            @RequestHeader(value = "X-Requested-With", required = false) String requestedWith,
+            HttpSession session) {
+        try {
+            CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
+            session.setAttribute("cartCount", cart.getTotalQuantity());
+            if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) {
+                return org.springframework.http.ResponseEntity.ok(cart);
+            }
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SEE_OTHER)
+                    .header(org.springframework.http.HttpHeaders.LOCATION, "/cart")
+                    .build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) {
+                return org.springframework.http.ResponseEntity.badRequest()
+                        .body(java.util.Map.of("error", e.getMessage()));
+            }
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SEE_OTHER)
+                    .header(org.springframework.http.HttpHeaders.LOCATION, "/cart")
+                    .build();
+        }
     }
 
     @PostMapping("/remove")
