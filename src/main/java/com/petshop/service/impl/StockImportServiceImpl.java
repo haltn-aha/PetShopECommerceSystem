@@ -1,5 +1,7 @@
 package com.petshop.service.impl;
 
+import com.petshop.dto.stock.StockImportFormDto;
+import com.petshop.dto.stock.StockImportItemDto;
 import com.petshop.entity.ProductVariant;
 import com.petshop.entity.StockImport;
 import com.petshop.entity.StockImportItem;
@@ -16,9 +18,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -32,27 +38,54 @@ public class StockImportServiceImpl implements StockImportService {
 
     @Override
     @Transactional
-    public StockImport createStockImport(StockImport stockImport, List<StockImportItem> items, Long staffId) {
+    public StockImport createStockImport(StockImportFormDto form, Long staffId) {
+        // Validate items exist
+        if (form.getItems() == null || form.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Phiếu nhập kho phải có ít nhất một sản phẩm.");
+        }
+
+        // Check for duplicate variants in the same import
+        Set<Long> variantIds = new HashSet<>();
+        for (StockImportItemDto itemDto : form.getItems()) {
+            if (!variantIds.add(itemDto.getVariantId())) {
+                throw new IllegalArgumentException("Không được nhập trùng sản phẩm trong cùng một phiếu.");
+            }
+        }
+
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại: " + staffId));
 
-        if (stockImport.getImportCode() == null || stockImport.getImportCode().isBlank()) {
-            stockImport.setImportCode("IMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
-        }
-
-        stockImport.setCreatedBy(staff);
+        // Create import header
+        StockImport stockImport = new StockImport();
+        stockImport.setImportCode("IMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+        stockImport.setSupplierName(form.getSupplierName());
+        stockImport.setNote(form.getNote());
         stockImport.setImportedAt(LocalDateTime.now());
+        stockImport.setCreatedBy(staff);
+
         StockImport savedImport = stockImportRepository.save(stockImport);
 
-        for (StockImportItem item : items) {
-            item.setStockImport(savedImport);
-            stockImportItemRepository.save(item);
+        // Process each item
+        List<StockImportItem> savedItems = new ArrayList<>();
+        for (StockImportItemDto itemDto : form.getItems()) {
+            ProductVariant variant = variantRepository.findById(itemDto.getVariantId())
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy SKU với ID: " + itemDto.getVariantId()));
 
-            // Automatically increase variant stock
-            variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity());
+            StockImportItem item = StockImportItem.builder()
+                    .stockImport(savedImport)
+                    .variant(variant)
+                    .quantity(itemDto.getQuantity())
+                    .unitCost(itemDto.getUnitCost())
+                    .build();
+            savedItems.add(stockImportItemRepository.save(item));
+
+            // Increase stock quantity
+            variantRepository.restoreStock(variant.getId(), itemDto.getQuantity());
         }
 
-        log.info("Stock import {} created by staff {}", savedImport.getImportCode(), staffId);
+        savedImport.setItems(savedItems);
+        log.info("Stock import {} created by staff {} with {} items",
+                savedImport.getImportCode(), staffId, savedItems.size());
         return savedImport;
     }
 

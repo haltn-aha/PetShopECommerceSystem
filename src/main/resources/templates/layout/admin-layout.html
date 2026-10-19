@@ -12,6 +12,8 @@
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <!-- Bootstrap Icons CDN -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Global Custom CSS -->
+    <link rel="stylesheet" th:href="@{/css/style.css}">
     
     <style>
         :root {
@@ -119,7 +121,7 @@
             <a th:href="@{/staff/stock-imports}">
                 <i class="bi bi-box-arrow-in-down"></i> Nhập Kho Hàng Hóa
             </a>
-            <a th:href="@{/staff/stock-imports/low-stock}">
+            <a th:href="@{/staff/products/low-stock}">
                 <i class="bi bi-exclamation-diamond text-warning"></i> Cảnh Báo Hết Hàng
             </a>
 

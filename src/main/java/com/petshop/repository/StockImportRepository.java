@@ -12,7 +12,12 @@ import java.util.Optional;
 
 @Repository
 public interface StockImportRepository extends JpaRepository<StockImport, Long> {
+
     Optional<StockImport> findByImportCode(String importCode);
+
+    @Query("SELECT si FROM StockImport si " +
+            "LEFT JOIN FETCH si.createdBy " +
+            "ORDER BY si.importedAt DESC")
     Page<StockImport> findAllByOrderByImportedAtDesc(Pageable pageable);
 
     @Query("SELECT si FROM StockImport si " +
@@ -21,4 +26,5 @@ public interface StockImportRepository extends JpaRepository<StockImport, Long> 
            "LEFT JOIN FETCH v.product " +
            "WHERE si.id = :id")
     Optional<StockImport> findByIdWithDetails(@Param("id") Long id);
+
 }

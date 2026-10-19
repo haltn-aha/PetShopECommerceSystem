@@ -35,7 +35,7 @@ spring:
     # - sendStringParametersAsUnicode=true (Preserves Vietnamese NVARCHAR diacritics without distortion)
     url: jdbc:sqlserver://localhost:1433;databaseName=PetShopDB;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true;
     username: sa
-    password: ${DB_PASSWORD:123}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
     hikari:
       pool-name: PetShopHikariPool

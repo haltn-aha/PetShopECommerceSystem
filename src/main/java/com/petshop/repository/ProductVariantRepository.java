@@ -28,6 +28,19 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
            "AND pv.stockQuantity <= pv.lowStockThreshold")
     List<ProductVariant> findLowStockVariants();
 
+    @Query("SELECT pv FROM ProductVariant pv " +
+            "JOIN FETCH pv.product p " +
+            "WHERE pv.status = com.petshop.entity.enums.ProductVariantStatus.ACTIVE " +
+            "AND p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED")
+    List<ProductVariant> findAllActiveWithProduct();
+
+    @Query("SELECT pv FROM ProductVariant pv " +
+            "JOIN FETCH pv.product p " +
+            "WHERE pv.status = com.petshop.entity.enums.ProductVariantStatus.ACTIVE " +
+            "AND p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED " +
+            "ORDER BY pv.stockQuantity ASC")
+    List<ProductVariant> findAllActiveOrderByStockAsc();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT pv FROM ProductVariant pv WHERE pv.id = :id")
     Optional<ProductVariant> findByIdForUpdate(@Param("id") Long id);

@@ -75,6 +75,8 @@ public class SecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 // Exempt server-to-server gateway webhooks from CSRF checks
                 .ignoringRequestMatchers("/payment/vnpay-ipn")
+                // Disable CSRF for all Staff routes (since JWT is used for auth)
+                .ignoringRequestMatchers("/staff/**")
             )
 
             // 3. Authorization Request Matchers
