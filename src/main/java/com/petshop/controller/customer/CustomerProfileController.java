@@ -87,6 +87,7 @@ public class CustomerProfileController {
     public String updateProfile(@AuthenticationPrincipal CustomUserDetails userDetails,
                                 @Valid @ModelAttribute ProfileUpdateRequestDto request,
                                 BindingResult bindingResult,
+                                @RequestParam(value = "avatarFile", required = false) org.springframework.web.multipart.MultipartFile avatarFile,
                                 RedirectAttributes redirectAttributes,
                                 Model model) {
         if (bindingResult.hasErrors()) {
@@ -96,9 +97,14 @@ public class CustomerProfileController {
 
         try {
             userService.updateProfile(userDetails.getId(), request);
+            if (avatarFile != null && !avatarFile.isEmpty()) {
+                userService.updateAvatar(userDetails.getId(), avatarFile);
+            }
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật thông tin cá nhân thành công!");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Lỗi: " + e.getMessage());
         }
         return "redirect:/customer/profile";
     }

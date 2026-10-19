@@ -217,7 +217,7 @@
                                     <span th:text="${user.fullName != null and !user.fullName.isBlank() ? user.fullName.substring(0, 1).toUpperCase() : 'U'}"></span>
                                 </div>
                                 <div class="avatar-hover-overlay">
-                                    <i class="bi bi-arrows-fullscreen fs-4 text-white"></i>
+                                    <i class="bi bi-camera fs-4 text-white"></i>
                                     <span class="text-white small fw-semibold mt-1">Đổi ảnh</span>
                                 </div>
                             </div>
@@ -227,7 +227,7 @@
                     <h5 class="fw-bold mb-1" th:text="${user.fullName}">Nguyễn Văn Khách</h5>
                     <p class="text-muted small mb-2" th:text="${user.email}">customer@petshop.vn</p>
 
-                    <div class="d-flex justify-content-center gap-2 mb-4">
+                    <div class="d-flex justify-content-center gap-2 mb-3">
                         <span class="badge bg-pet-primary px-3 py-2 rounded-pill">
                             <i class="bi bi-person-badge me-1"></i>
                             <span th:text="${user.role != null ? user.role.name : 'Khách hàng'}">Khách hàng</span>
@@ -241,6 +241,12 @@
                     <button type="button" class="btn btn-outline-secondary w-100 py-2 fw-semibold rounded-3 mb-2"
                             data-bs-toggle="modal" data-bs-target="#updateProfileModal">
                         <i class="bi bi-pencil-square me-2 text-pet-primary"></i> Sửa Thông Tin Cá Nhân
+                    </button>
+
+                    <!-- Nút mở POPUP ĐỔI ẢNH ĐẠI DIỆN -->
+                    <button type="button" class="btn btn-light border text-pet-primary w-100 py-2 fw-semibold rounded-3 mb-2"
+                            data-bs-toggle="modal" data-bs-target="#avatarZoomModal">
+                        <i class="bi bi-camera me-2"></i> Đổi Ảnh Đại Diện
                     </button>
 
                     <div class="text-muted small mt-2">
@@ -624,7 +630,6 @@
                 </div>
             </div>
         </div>
-    </div>
 
     <!-- ================================================================= -->
     <!-- MODAL POPUP: CẬP NHẬT THÔNG TIN CÁ NHÂN                           -->
@@ -639,8 +644,35 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form th:action="@{/customer/profile}" method="post">
+                <form th:action="@{/customer/profile}" method="post" enctype="multipart/form-data">
                     <div class="modal-body p-4">
+                        <!-- Chọn ảnh đại diện mới -->
+                        <div class="mb-4 text-center">
+                            <div class="d-inline-block position-relative mb-2">
+                                <img id="modalAvatarPreview"
+                                     th:if="${user.avatarUrl != null and !user.avatarUrl.isBlank()}"
+                                     th:src="${user.avatarUrl}" alt="Avatar"
+                                     class="rounded-circle border border-3 border-teal shadow-sm"
+                                     style="width: 80px; height: 80px; object-fit: cover;">
+                                <div id="modalAvatarPlaceholder"
+                                     th:unless="${user.avatarUrl != null and !user.avatarUrl.isBlank()}"
+                                     class="rounded-circle bg-pet-primary text-white d-flex align-items-center justify-content-center shadow-sm fw-bold fs-3 mx-auto"
+                                     style="width: 80px; height: 80px;">
+                                    <span th:text="${user.fullName != null and !user.fullName.isBlank() ? user.fullName.substring(0, 1).toUpperCase() : 'U'}"></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="modalAvatarFile" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1" style="cursor: pointer;">
+                                    <i class="bi bi-camera me-1 text-pet-primary"></i> Đổi ảnh đại diện
+                                </label>
+                                <input type="file" id="modalAvatarFile" name="avatarFile"
+                                       accept="image/png, image/jpeg, image/jpg, image/webp"
+                                       class="d-none"
+                                       onchange="previewModalAvatar(this)">
+                                <div id="modalAvatarFileName" class="small text-muted mt-1"></div>
+                            </div>
+                        </div>
+
                         <!-- Họ và Tên -->
                         <div class="mb-3">
                             <label for="modalFullName" class="form-label small fw-semibold">Họ và Tên <span class="text-danger">*</span></label>
@@ -892,6 +924,34 @@
             setTimeout(function() {
                 document.getElementById("avatarUploadForm").submit();
             }, 300);
+        }
+
+        function previewModalAvatar(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const nameDisplay = document.getElementById("modalAvatarFileName");
+                if (nameDisplay) {
+                    nameDisplay.textContent = file.name;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    let img = document.getElementById("modalAvatarPreview");
+                    let placeholder = document.getElementById("modalAvatarPlaceholder");
+                    if (img) {
+                        img.src = e.target.result;
+                    } else if (placeholder) {
+                        const newImg = document.createElement("img");
+                        newImg.id = "modalAvatarPreview";
+                        newImg.src = e.target.result;
+                        newImg.className = "rounded-circle border border-3 border-teal shadow-sm";
+                        newImg.style.width = "80px";
+                        newImg.style.height = "80px";
+                        newImg.style.objectFit = "cover";
+                        placeholder.parentNode.replaceChild(newImg, placeholder);
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
         }
     </script>
 </th:block>
