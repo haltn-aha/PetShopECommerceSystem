@@ -105,6 +105,7 @@
                             <span th:if="${u.status == 'ACTIVE'}" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                                 <i class="bi bi-check-circle me-1"></i>Hoạt động
                             </span>
+                            <span th:if="${u.role.code == 'STAFF' and u.mustChangePassword}" class="badge bg-warning-subtle text-warning-emphasis d-block mt-1">Chờ đặt mật khẩu</span>
                             <span th:if="${u.status == 'LOCKED' || u.status == 'INACTIVE'}" class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
                                 <i class="bi bi-lock me-1"></i>Bị khóa
                             </span>
@@ -116,10 +117,14 @@
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <form th:action="@{/admin/users/{id}/reset-password(id=${u.id})}" method="post" class="d-inline"
-                                      onsubmit="return confirm('Bạn có chắc muốn đặt lại mật khẩu cho tài khoản này?');">
-                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Đặt lại mật khẩu">
+                                      onsubmit="return confirm('Gửi liên kết đặt mật khẩu mới qua email? Mật khẩu hiện tại sẽ bị vô hiệu hóa khi gửi thành công.');">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Gửi email đặt mật khẩu mới">
                                         <i class="bi bi-key"></i>
                                     </button>
+                                </form>
+                                <form th:if="${u.role.code == 'STAFF' and u.mustChangePassword and u.status == 'ACTIVE'}"
+                                      th:action="@{/admin/users/{id}/resend-invitation(id=${u.id})}" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-info" title="Gửi lại lời mời nhận tài khoản"><i class="bi bi-envelope-arrow-up"></i> Gửi lại</button>
                                 </form>
                                 <form th:action="@{/admin/users/{id}/toggle-status(id=${u.id})}" method="post" class="d-inline"
                                       onsubmit="return confirm('Bạn có chắc chắn muốn thay đổi trạng thái hoạt động của tài khoản này?');">

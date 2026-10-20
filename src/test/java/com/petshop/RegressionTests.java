@@ -2,6 +2,7 @@ package com.petshop;
 
 import com.petshop.config.security.CustomUserDetails;
 import com.petshop.dto.auth.*;
+import com.petshop.dto.admin.StaffCreateRequestDto;
 import com.petshop.dto.catalog.ProductFilterDto;
 import com.petshop.dto.order.CheckoutSubmitDto;
 import com.petshop.dto.voucher.VoucherRequestDto;
@@ -27,12 +28,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
 class RegressionTests {
+    @org.springframework.boot.test.mock.mockito.MockBean EmailService emailService;
     @Autowired RoleRepository roles;
     @Autowired UserRepository users;
     @Autowired CategoryRepository categories;
@@ -84,12 +88,17 @@ class RegressionTests {
                 .shippingProvince("HCM").shippingDistrict("Thu Duc").shippingWard("Linh Trung").shippingAddressLine("123 Road")
                 .paymentMethod(PaymentMethod.COD).build();
     }
-    @Test void staffPasswordConfirmationRejectedBeforePersisting() {
+    @Test void staffInvitationRequiresEmailAndSendsSetupLink() {
         long count=users.count();
-        var form=RegisterRequestDto.builder().fullName("New staff").email("new@regression.test").phone("0901000004").password("Secret@123").confirmPassword("Different").build();
+        var form=StaffCreateRequestDto.builder().fullName("New staff").email("").phone("0901000004").build();
         assertThrows(IllegalArgumentException.class,()->userService.createStaffAccount(form));
         assertEquals(count,users.count());
-        form.setConfirmPassword("Secret@123");assertEquals("STAFF",userService.createStaffAccount(form).getRole().getCode());
+        form.setEmail("new@regression.test");
+        var created = userService.createStaffAccount(form);
+        assertEquals("STAFF",created.getRole().getCode());
+        assertTrue(created.getMustChangePassword());
+        verify(emailService).sendStaffInvitation(eq(form.getEmail()), eq("New staff"), contains("/reset-password?token="));
+        assertEquals(1, tokens.count());
     }
     @Test void voucherDatesMustBeStrictlyIncreasing() {
         var form=voucherForm();form.setEndDate(form.getStartDate());
@@ -119,16 +128,115 @@ class RegressionTests {
         customer.setStatus("ACTIVE");customer.setRole(staff.getRole());users.saveAndFlush(customer);
         mvc.perform(get("/account/profile").with(user(old))).andExpect(redirectedUrl("/login?expired=true"));
     }
-    @Test void resetPasswordRevokesSessionAndForcesPasswordChange() throws Exception {
-        var old=new CustomUserDetails(customer);String temp=userService.resetUserPassword(customer.getId(),admin.getId());
-        assertTrue(temp.length()>16);assertTrue(users.findById(customer.getId()).orElseThrow().getMustChangePassword());
+    @Test void resetPasswordRevokesSessionAndEmailsOneTimeLink() throws Exception {
+        var old=new CustomUserDetails(customer);userService.resetUserPassword(customer.getId(),admin.getId());
+        assertTrue(users.findById(customer.getId()).orElseThrow().getMustChangePassword());
         mvc.perform(get("/account/profile").with(user(old))).andExpect(redirectedUrl("/login?expired=true"));
-        var fresh=new CustomUserDetails(users.findById(customer.getId()).orElseThrow());
-        mvc.perform(get("/account/profile").with(user(fresh))).andExpect(redirectedUrl("/account/password"));
-        mvc.perform(get("/account/password").with(user(fresh))).andExpect(status().isOk());
-        mvc.perform(post("/account/password").with(user(fresh)).with(csrf()).param("currentPassword",temp).param("newPassword","Changed@123").param("confirmNewPassword","Changed@123"))
-                .andExpect(redirectedUrl("/login?passwordChanged=true"));
+        var link = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendPasswordResetEmail(eq(customer.getEmail()), anyString(), link.capture());
+        String token = java.net.URI.create(link.getValue()).getQuery().substring("token=".length());
+        mvc.perform(post("/reset-password").with(csrf()).param("token",token).param("newPassword","Changed@123").param("confirmPassword","Changed@123"))
+                .andExpect(redirectedUrl("/login"));
         assertFalse(users.findById(customer.getId()).orElseThrow().getMustChangePassword());
+        assertTrue(encoder.matches("Changed@123",users.findById(customer.getId()).orElseThrow().getPasswordHash()));
+        assertFalse(auth.verifyPasswordResetToken(token));
+    }
+
+    @Test void staffCanReceiveEmailSetPasswordAndLoginWithoutAdminChoosingPassword() throws Exception {
+        String html = mvc.perform(get("/admin/users/create").with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(html.contains("type=\"password\""));
+        mvc.perform(post("/admin/users/create").with(user(new CustomUserDetails(admin))).with(csrf())
+                .param("fullName","Staff invited").param("email","invite@regression.test").param("phone","0901000005")
+                .param("roleCode","ADMIN").param("password","Attacker@123"))
+                .andExpect(redirectedUrl("/admin/users"));
+        var created = users.findByEmail("invite@regression.test").orElseThrow();
+        assertEquals("STAFF",created.getRole().getCode());
+        assertFalse(encoder.matches("Attacker@123",created.getPasswordHash()));
+        var link = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendStaffInvitation(eq(created.getEmail()),eq("Staff invited"),link.capture());
+        String token = java.net.URI.create(link.getValue()).getQuery().substring(6);
+        assertTrue(auth.verifyPasswordResetToken(token));
+        assertNotEquals(token,tokens.findAll().get(0).getTokenHash());
+        mvc.perform(post("/reset-password").with(csrf()).param("token",token).param("newPassword","StaffOwn@123").param("confirmPassword","StaffOwn@123"))
+                .andExpect(redirectedUrl("/login"));
+        mvc.perform(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin().user(created.getEmail()).password("StaffOwn@123"))
+                .andExpect(org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated().withRoles("STAFF"));
+        assertFalse(users.findById(created.getId()).orElseThrow().getMustChangePassword());
+        assertThrows(IllegalArgumentException.class,()->auth.resetPasswordWithToken(token,"Reuse@123"));
+    }
+
+    @Test void resendingStaffInvitationExpiresOldLinkAndRejectsNonPendingAccounts() throws Exception {
+        var dto = StaffCreateRequestDto.builder().fullName("Staff invited").email("resend@regression.test").phone("0901000006").build();
+        var created = userService.createStaffAccount(dto);
+        userService.resendStaffInvitation(created.getId());
+        var links = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(emailService,times(2)).sendStaffInvitation(eq(created.getEmail()),anyString(),links.capture());
+        String old = java.net.URI.create(links.getAllValues().get(0)).getQuery().substring(6);
+        String latest = java.net.URI.create(links.getAllValues().get(1)).getQuery().substring(6);
+        assertFalse(auth.verifyPasswordResetToken(old));
+        assertThrows(IllegalArgumentException.class,()->auth.resetPasswordWithToken(old,"Expired@123"));
+        assertTrue(auth.verifyPasswordResetToken(latest));
+        auth.resetPasswordWithToken(latest,"Chosen@123");
+        assertThrows(IllegalArgumentException.class,()->userService.resendStaffInvitation(created.getId()));
+        assertThrows(IllegalArgumentException.class,()->userService.resendStaffInvitation(customer.getId()));
+    }
+
+    @Test void unavailableMailShowsErrorAndDoesNotCreateStaff() throws Exception {
+        doThrow(new IllegalStateException("SMTP chưa cấu hình")).when(emailService).requireConfigured();
+        mvc.perform(post("/admin/users/create").with(user(new CustomUserDetails(admin))).with(csrf())
+                .param("fullName","Staff invited").param("email","failure@regression.test").param("phone","0901000007"))
+                .andExpect(view().name("admin/user-form")).andExpect(model().attributeExists("errorMessage"));
+        assertFalse(users.existsByEmail("failure@regression.test"));
+        assertEquals(0,tokens.count());
+    }
+
+    @Test void changingInvitedStaffEmailRevokesPreviouslySentLink() {
+        var created=userService.createStaffAccount(StaffCreateRequestDto.builder().fullName("Staff pending")
+                .email("previous@regression.test").phone("0901000010").build());
+        var links=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendStaffInvitation(eq(created.getEmail()),anyString(),links.capture());
+        String previous=java.net.URI.create(links.getValue()).getQuery().substring(6);
+        userService.updateUserByAdmin(created.getId(),com.petshop.dto.admin.UserAdminUpdateDto.builder()
+                .fullName(created.getFullName()).email("changed@regression.test").phone(created.getPhone()).status("ACTIVE").build(),admin.getId());
+        assertFalse(auth.verifyPasswordResetToken(previous));
+        userService.resendStaffInvitation(created.getId());
+        verify(emailService).sendStaffInvitation(eq("changed@regression.test"),anyString(),contains("/reset-password?token="));
+    }
+
+    @Test void accountEditingCannotChangeRolesOrReassignRelatedData() throws Exception {
+        carts.addItemToCart(customer.getId(),variant.getId(),1);
+        var order=orderService.checkoutOrder(customer.getId(),checkout());
+        product.setCreatedBy(staff);products.saveAndFlush(product);
+        for (User target : List.of(customer,staff)) {
+            mvc.perform(post("/admin/users/"+target.getId()+"/edit").with(user(new CustomUserDetails(admin))).with(csrf())
+                    .param("fullName",target.getFullName()).param("email",target.getEmail()).param("phone",target.getPhone())
+                    .param("status","ACTIVE").param("roleCode",target==customer?"STAFF":"CUSTOMER").param("roleId",admin.getRole().getId().toString()))
+                    .andExpect(redirectedUrl("/admin/users"));
+        }
+        em.flush();em.clear();
+        assertEquals("CUSTOMER",users.findById(customer.getId()).orElseThrow().getRole().getCode());
+        assertEquals("STAFF",users.findById(staff.getId()).orElseThrow().getRole().getCode());
+        assertEquals(customer.getId(),orders.findById(order.getId()).orElseThrow().getCustomer().getId());
+        assertEquals(staff.getId(),products.findById(product.getId()).orElseThrow().getCreatedBy().getId());
+        String html=mvc.perform(get("/admin/users/"+staff.getId()+"/edit").with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(html.contains("name=\"roleCode\""));
+        assertFalse(html.contains("name=\"roleId\""));
+    }
+
+    @Test void publicForgotPasswordDoesNotDisableCurrentLoginAndLockedTokenCannotSetPassword() {
+        String original=customer.getPasswordHash();
+        auth.initiatePasswordReset(customer.getEmail());
+        var links=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendPasswordResetEmail(eq(customer.getEmail()),anyString(),links.capture());
+        String token=java.net.URI.create(links.getValue()).getQuery().substring(6);
+        assertEquals(original,users.findById(customer.getId()).orElseThrow().getPasswordHash());
+        assertFalse(customer.getMustChangePassword());
+        customer.setStatus("LOCKED");users.saveAndFlush(customer);
+        assertFalse(auth.verifyPasswordResetToken(token));
+        assertThrows(IllegalArgumentException.class,()->auth.resetPasswordWithToken(token,"Locked@123"));
+        assertEquals("LOCKED",users.findById(customer.getId()).orElseThrow().getStatus());
     }
     @Test void checkoutAndCancelRestoreStockAndVoucherExactlyOnce() {
         Voucher v=voucherService.createVoucher(voucherForm());voucherService.saveVoucherToWallet(customer.getId(),v.getId());

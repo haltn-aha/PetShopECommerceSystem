@@ -33,6 +33,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.petshop.service.PasswordResetMailer resetMailer;
+    private final com.petshop.service.AccountAccessService accountAccessService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional
@@ -86,17 +88,8 @@ public class AuthServiceImpl implements AuthService {
     public void initiatePasswordReset(String email) {
         resetMailer.requireConfigured();
         log.info("Initiating password reset for email: {}", email);
-        userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(user -> {
-            String rawToken = UUID.randomUUID().toString();
-            String tokenHash = hashToken(rawToken);
-
-            PasswordResetToken resetToken = PasswordResetToken.builder()
-                    .user(user)
-                    .tokenHash(tokenHash)
-                    .expiresAt(LocalDateTime.now().plusMinutes(30))
-                    .build();
-            tokenRepository.save(resetToken);
-            resetMailer.send(user.getEmail(), rawToken);
+        userRepository.findByEmail(email.trim().toLowerCase()).filter(user -> "ACTIVE".equals(user.getStatus())).ifPresent(user -> {
+            accountAccessService.sendLink(user.getId(), false, false);
             log.info("Sent password reset instructions for user ID {}", user.getId());
         });
     }
@@ -104,10 +97,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public boolean verifyPasswordResetToken(String token) {
-        String tokenHash = hashToken(token);
-        return tokenRepository.findByTokenHash(tokenHash)
-                .filter(t -> t.getUsedAt() == null && t.getExpiresAt().isAfter(LocalDateTime.now()))
-                .isPresent();
+        return token != null && !token.isBlank() && tokenRepository.isUsable(hashToken(token), LocalDateTime.now());
     }
 
     @Override
@@ -117,21 +107,28 @@ public class AuthServiceImpl implements AuthService {
                 || newPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new IllegalArgumentException("Mật khẩu tối thiểu 6 ký tự, tối đa 72 byte UTF-8.");
         }
+        if (token == null || token.isBlank()) throw new IllegalArgumentException("Liên kết không hợp lệ.");
         String tokenHash = hashToken(token);
+        PasswordResetToken candidate = tokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new IllegalArgumentException("Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
+        User user = userRepository.findByIdForUpdate(candidate.getUser().getId()).orElseThrow();
+        entityManager.refresh(user, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         PasswordResetToken resetToken = tokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> new IllegalArgumentException("Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
+        entityManager.refresh(resetToken, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
 
         if (resetToken.getUsedAt() != null || !resetToken.getExpiresAt().isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("Token đặt lại mật khẩu đã hết hạn hoặc đã được sử dụng.");
         }
 
-        User user = resetToken.getUser();
+        if (!"ACTIVE".equals(user.getStatus())) throw new IllegalArgumentException("Tài khoản đang bị khóa. Vui lòng liên hệ Admin.");
         user.setMustChangePassword(false);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
         resetToken.setUsedAt(LocalDateTime.now());
-        tokenRepository.save(resetToken);
+        tokenRepository.saveAndFlush(resetToken);
+        tokenRepository.revokeUnusedForUser(user.getId(), LocalDateTime.now());
         log.info("Password successfully reset for user ID: {}", user.getId());
     }
 

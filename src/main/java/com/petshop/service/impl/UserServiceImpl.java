@@ -32,6 +32,10 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final jakarta.persistence.EntityManager entityManager;
+    private final com.petshop.service.AccountAccessService accountAccessService;
+    private final com.petshop.service.PasswordResetMailer resetMailer;
+    private final jakarta.validation.Validator validator;
+    private final com.petshop.repository.PasswordResetTokenRepository tokenRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -170,12 +174,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public User createStaffAccount(RegisterRequestDto request) {
-        if (request.getPassword() == null || request.getPassword().isBlank() || request.getPassword().length() < 6 || request.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
-                || !request.getPassword().equals(request.getConfirmPassword())) {
-            throw new IllegalArgumentException("Mật khẩu tối thiểu 6 ký tự và xác nhận phải khớp.");
+    public User createStaffAccount(com.petshop.dto.admin.StaffCreateRequestDto request) {
+        if (!validator.validate(request).isEmpty()) {
+            throw new IllegalArgumentException("Họ tên, email và số điện thoại nhân viên phải hợp lệ.");
         }
-        if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail().trim())) {
+        resetMailer.requireConfigured();
+        String cleanEmail = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        if (userRepository.existsByEmail(cleanEmail)) {
             throw new IllegalArgumentException("Email nhân viên đã tồn tại.");
         }
         if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone().trim())) {
@@ -191,14 +196,17 @@ public class UserServiceImpl implements UserService {
 
         User staff = User.builder()
                 .fullName(request.getFullName().trim())
-                .email(request.getEmail() != null ? request.getEmail().trim().toLowerCase() : null)
+                .email(cleanEmail)
                 .phone(request.getPhone().trim())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .passwordHash(passwordEncoder.encode(com.petshop.service.AccountAccessService.randomSecret()))
+                .mustChangePassword(true)
                 .role(staffRole)
                 .status("ACTIVE")
                 .build();
 
-        return userRepository.save(staff);
+        User saved = userRepository.saveAndFlush(staff);
+        accountAccessService.sendLink(saved.getId(), true, false);
+        return saved;
     }
 
     @Override
@@ -206,22 +214,17 @@ public class UserServiceImpl implements UserService {
     public void updateUserByAdmin(Long userId, com.petshop.dto.admin.UserAdminUpdateDto request, Long currentAdminId) {
         roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
         User user = lockUser(userId);
-        if (!java.util.Set.of("ADMIN", "STAFF", "CUSTOMER").contains(request.getRoleCode())
-                || !java.util.Set.of("ACTIVE", "LOCKED").contains(request.getStatus())) {
-            throw new IllegalArgumentException("Vai trò hoặc trạng thái không hợp lệ.");
+        if (!java.util.Set.of("ACTIVE", "LOCKED").contains(request.getStatus())) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ.");
         }
         if ("ACTIVE".equals(user.getStatus()) && "ADMIN".equals(user.getRole().getCode())
-                && (!"ACTIVE".equals(request.getStatus()) || !"ADMIN".equals(request.getRoleCode()))
+                && !"ACTIVE".equals(request.getStatus())
                 && userRepository.countByRoleCodeAndStatus("ADMIN", "ACTIVE") <= 1) {
             throw new IllegalArgumentException("Phải giữ ít nhất một quản trị viên đang hoạt động.");
         }
 
         if (user.getId().equals(currentAdminId) && !"ACTIVE".equalsIgnoreCase(request.getStatus())) {
             throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
-        }
-
-        if (user.getId().equals(currentAdminId) && !"ADMIN".equalsIgnoreCase(request.getRoleCode())) {
-            throw new IllegalArgumentException("Không thể tự hạ cấp quyền quản trị của chính mình.");
         }
 
         // Check email uniqueness if modified
@@ -232,6 +235,7 @@ public class UserServiceImpl implements UserService {
                     throw new IllegalArgumentException("Email '" + newEmail + "' đã được sử dụng bởi tài khoản khác.");
                 }
             });
+            if (!newEmail.equals(user.getEmail())) tokenRepository.revokeUnusedForUser(userId, LocalDateTime.now());
             user.setEmail(newEmail);
         }
 
@@ -246,13 +250,6 @@ public class UserServiceImpl implements UserService {
             user.setPhone(newPhone);
         }
 
-        // Update role
-        if (!user.getRole().getCode().equalsIgnoreCase(request.getRoleCode())) {
-            Role newRole = roleRepository.findByCode(request.getRoleCode().trim().toUpperCase())
-                    .orElseThrow(() -> new IllegalArgumentException("Vai trò không hợp lệ: " + request.getRoleCode()));
-            user.setRole(newRole);
-        }
-
         user.setFullName(request.getFullName().trim());
         user.setStatus(request.getStatus().trim().toUpperCase());
         userRepository.save(user);
@@ -261,17 +258,16 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public String resetUserPassword(Long userId, Long currentAdminId) {
+    public void resetUserPassword(Long userId, Long currentAdminId) {
         User user = lockUser(userId);
-        // Generate a temporary password with 96 bits of cryptographic randomness.
-        byte[] randomBytes = new byte[12];
-        new java.security.SecureRandom().nextBytes(randomBytes);
-        String tempPassword = "Pet@" + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
-        user.setMustChangePassword(true);
-        user.setPasswordHash(passwordEncoder.encode(tempPassword));
-        userRepository.save(user);
-        log.info("Admin {} reset password for user {}", currentAdminId, userId);
-        return tempPassword;
+        accountAccessService.sendLink(user.getId(), false, true);
+        log.info("Admin {} requested password setup email for user {}", currentAdminId, userId);
+    }
+
+    @Override
+    @Transactional
+    public void resendStaffInvitation(Long userId) {
+        accountAccessService.sendLink(userId, true, false);
     }
 
     private User lockUser(Long userId) {

@@ -120,6 +120,8 @@ Chức năng này không hoạt động ở profile `test` hoặc khi không dù
 
 ## 5. Tài khoản mẫu đăng nhập (Seed Credentials)
 
+Quy trình cấp Staff hiện tại: Admin nhập họ tên/email/SĐT, hệ thống gửi link dùng một lần để Staff tự đặt mật khẩu. Cần cấu hình SMTP trước khi tạo; không có mật khẩu ban đầu để Admin đọc/gửi miệng. Màn hình sửa tài khoản không hỗ trợ đổi role. Chi tiết và cấu hình: [docs/STAFF_ONBOARDING_ROLE_POLICY.md](docs/STAFF_ONBOARDING_ROLE_POLICY.md).
+
 Hệ thống đã nạp sẵn 3 tài khoản mặc định đại diện cho 3 Role với mật khẩu đã mã hóa BCrypt (`$2a$10$...`):
 
 | Vai trò / Role | Email đăng nhập | Số điện thoại | Mật khẩu mặc định / Password | Quyền truy cập các tuyến đường / Access Scope |

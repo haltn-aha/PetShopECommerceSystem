@@ -21,10 +21,10 @@ spring:
   application:
     name: petshop-app
   mail:
-    host: ${SMTP_HOST:}
+    host: ${SMTP_HOST:${MAIL_HOST:}}
     port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
+    username: ${SMTP_USERNAME:${MAIL_USERNAME:}}
+    password: ${SMTP_PASSWORD:${MAIL_PASSWORD:}}
     properties:
       mail.smtp.auth: ${SMTP_AUTH:true}
       mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
@@ -134,5 +134,5 @@ petshop:
   browser:
     auto-open: ${AUTO_OPEN_BROWSER:true}
   shipping-fee: ${SHIPPING_FEE:30000}
-  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8080}
-  mail-from: ${SMTP_FROM:no-reply@petshop.vn}
+  public-base-url: ${PUBLIC_BASE_URL:${APP_BASE_URL:http://localhost:8080}}
+  mail-from: ${SMTP_FROM:${SMTP_USERNAME:${MAIL_USERNAME:}}}

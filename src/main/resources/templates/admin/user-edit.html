@@ -16,7 +16,7 @@
             <div class="d-flex align-items-center justify-content-between mb-4">
                 <div>
                     <h4 class="fw-bold mb-1">Chỉnh Sửa Tài Khoản</h4>
-                    <p class="text-muted small mb-0">Cập nhật thông tin, vai trò và trạng thái hoạt động của người dùng.</p>
+                    <p class="text-muted small mb-0">Cập nhật thông tin và trạng thái hoạt động của người dùng.</p>
                 </div>
                 <a th:href="@{/admin/users}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i> Quay lại danh sách
@@ -51,13 +51,9 @@
 
                     <div class="row mb-4">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Vai Trò Hệ Thống <span class="text-danger">*</span></label>
-                            <select th:field="*{roleCode}" class="form-select" th:classappend="${#fields.hasErrors('roleCode')} ? 'is-invalid'">
-                                <option value="CUSTOMER">CUSTOMER (Khách hàng)</option>
-                                <option value="STAFF">STAFF (Nhân viên vận hành)</option>
-                                <option value="ADMIN">ADMIN (Quản trị viên)</option>
-                            </select>
-                            <div class="invalid-feedback" th:errors="*{roleCode}"></div>
+                            <label class="form-label fw-semibold">Vai trò hệ thống</label>
+                            <input class="form-control" th:value="${targetUser.role.code}" readonly aria-label="Vai trò cố định">
+                            <div class="form-text">Vai trò được xác định khi tạo tài khoản và không chuyển đổi tại màn hình này.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Trạng Thái Tài Khoản <span class="text-danger">*</span></label>

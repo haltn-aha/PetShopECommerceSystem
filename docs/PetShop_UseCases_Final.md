@@ -152,7 +152,7 @@ TỔNG SỐ USE CASES: 73 (GUEST: 7 | CUSTOMER: 30 | STAFF: 18 | ADMIN: 18)
 |---|---|---|---|---|---|---|
 | *(UC-6)* | *(Logout)* | Admin | Không | Dùng chung | Đăng xuất khỏi hệ thống quản trị cao cấp. | `Users` |
 | *(UC-16)* | *(Login)* | Admin | Không | Dùng chung | Đăng nhập tài khoản quản trị viên tối cao. | `Users`, `Roles` |
-| **UC-21** | Manage Account | Admin | Không | Base UC (CRUD) | Cho phép Admin quản lý danh sách tài khoản toàn hệ thống, tạo tài khoản cho nhân viên mới và kiểm soát quyền hạn. | `Users`, `Roles` |
+| **UC-21** | Manage Account | Admin | Email Service | Base UC | Admin tra cứu, cập nhật thông tin, cấp tài khoản STAFF mới qua email chứa liên kết đặt mật khẩu dùng một lần và gửi lại khi cần. Vai trò cố định theo loại tài khoản, không chuyển CUSTOMER ↔ STAFF hoặc cấp ADMIN từ màn hình này. | `Users`, `Roles`, `PasswordResetTokens` |
 | **UC-21.1** | Lock/Unlock Account | Admin | Không | `<<extend>>` UC-21 | Cho phép Admin kích hoạt hoặc vô hiệu hóa tài khoản người dùng (`ACTIVE` / `LOCKED`) khi phát hiện vi phạm hoặc theo yêu cầu bảo mật. | `Users` |
 | **UC-22** | Manage Category | Admin | Không | Độc lập (CRUD) | Cho phép Admin thêm mới, chỉnh sửa tên/mã, bật/tắt hoạt động và quản lý cây phân cấp 2 cấp của danh mục sản phẩm. | `Categories` |
 | **UC-23** | Manage Brand | Admin | Không | Độc lập (CRUD) | Cho phép Admin thêm mới, chỉnh sửa thông tin và bật/tắt hoạt động của các thương hiệu thú cưng trên website. | `Brands` |

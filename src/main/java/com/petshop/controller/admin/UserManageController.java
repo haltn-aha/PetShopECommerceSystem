@@ -1,7 +1,7 @@
 package com.petshop.controller.admin;
 
 import com.petshop.config.security.CustomUserDetails;
-import com.petshop.dto.auth.RegisterRequestDto;
+import com.petshop.dto.admin.StaffCreateRequestDto;
 import com.petshop.entity.User;
 import com.petshop.service.UserService;
 import jakarta.validation.Valid;
@@ -43,13 +43,13 @@ public class UserManageController {
     @GetMapping("/create")
     public String createStaffForm(Model model) {
         if (!model.containsAttribute("staffForm")) {
-            model.addAttribute("staffForm", new RegisterRequestDto());
+            model.addAttribute("staffForm", new StaffCreateRequestDto());
         }
         return "admin/user-form";
     }
 
     @PostMapping("/create")
-    public String saveStaff(@Valid @ModelAttribute("staffForm") RegisterRequestDto staffForm,
+    public String saveStaff(@Valid @ModelAttribute("staffForm") StaffCreateRequestDto staffForm,
                             BindingResult bindingResult,
                             RedirectAttributes redirectAttributes,
                             Model model) {
@@ -59,9 +59,9 @@ public class UserManageController {
 
         try {
             userService.createStaffAccount(staffForm);
-            redirectAttributes.addFlashAttribute("successMessage", "Cấp tài khoản nhân viên thành công!");
+            redirectAttributes.addFlashAttribute("successMessage", "Đã tạo Staff và gửi email nhận tài khoản. Nhân viên cần đặt mật khẩu qua liên kết trong 30 phút.");
             return "redirect:/admin/users";
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             model.addAttribute("errorMessage", e.getMessage());
             return "admin/user-form";
         }
@@ -88,7 +88,6 @@ public class UserManageController {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .phone(user.getPhone())
-                .roleCode(user.getRole().getCode())
                 .status(user.getStatus())
                 .build();
         model.addAttribute("userForm", updateDto);
@@ -124,11 +123,21 @@ public class UserManageController {
                                 @PathVariable Long id,
                                 RedirectAttributes redirectAttributes) {
         try {
-            String tempPassword = userService.resetUserPassword(id, userDetails.getId());
-            redirectAttributes.addFlashAttribute("successMessage", 
-                    "Đã đặt lại mật khẩu thành công! Mật khẩu mới là: " + tempPassword + " (Vui lòng lưu lại và gửi cho người dùng).");
+            userService.resetUserPassword(id, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Đã gửi email đặt mật khẩu mới. Liên kết dùng một lần, có hiệu lực 30 phút.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Không thể đặt lại mật khẩu: " + e.getMessage());
+        }
+        return "redirect:/admin/users";
+    }
+
+    @PostMapping("/{id}/resend-invitation")
+    public String resendInvitation(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            userService.resendStaffInvitation(id);
+            redirectAttributes.addFlashAttribute("successMessage", "Đã gửi lại lời mời nhận tài khoản Staff. Liên kết trước đó đã hết hiệu lực.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/admin/users";
     }

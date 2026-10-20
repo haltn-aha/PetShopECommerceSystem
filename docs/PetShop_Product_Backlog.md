@@ -121,17 +121,20 @@ Bảng tổng hợp 26 tính năng của dự án với đầy đủ 6 cột b�
 
 ---
 
-#### `FEAT-04`: Quản trị tài khoản người dùng & Cấp quyền nhân viên
+#### `FEAT-04`: Quản trị tài khoản người dùng & Cấp tài khoản nhân viên qua email
 - **Phân hệ**: Account Management
 - **User Story**: Là một Quản trị viên (Admin), tôi muốn tra cứu danh sách người dùng, cấp tài khoản cho nhân viên mới, khóa/mở khóa tài khoản để kiểm soát an toàn vận hành hệ thống.
-- **Mô tả nghiệp vụ**: Admin tìm kiếm tài khoản theo Họ tên, Email, SĐT, lọc theo vai trò (`CUSTOMER`, `STAFF`) và trạng thái (`ACTIVE`, `LOCKED`). Hỗ trợ tạo tài khoản mới cho Staff; thay đổi trạng thái Khóa/Mở khóa tài khoản người dùng (chặn Admin tự khóa tài khoản của chính mình); hỗ trợ đặt lại mật khẩu trực tiếp cho tài khoản khi cần thiết.
+- **Mô tả nghiệp vụ**: Admin tìm kiếm tài khoản theo Họ tên, Email, SĐT, lọc vai trò và ACTIVE/LOCKED; cấp tài khoản STAFF bằng họ tên, email bắt buộc và SĐT. Hệ thống gửi liên kết dùng một lần, hết hạn sau 30 phút, để Staff tự đặt mật khẩu; Admin không nhập hoặc nhìn thấy mật khẩu. Có gửi lại lời mời và vô hiệu hóa link cũ. Admin reset mật khẩu cũng gửi liên kết qua email, không hiện mật khẩu tạm. Không hỗ trợ đổi CUSTOMER ↔ STAFF hoặc thăng cấp ADMIN; vai trò được cố định khi tạo, dữ liệu lịch sử không chuyển chủ.
 - **Use Cases liên quan**: `UC-21` (Manage Account Base UC / CRUD), `UC-21.1` (Lock/Unlock Account).
 - **Mức ưu tiên**: **Should Have** | **Sprint**: **Sprint 2** | **Phụ trách**: **Member 1**
 - **Thực thể CSDL & Thành phần kỹ thuật**: `Roles`, `Users`; `AdminUserController`, `admin/user-list.html`, `admin/user-detail.html`, `admin/staff-create.html`.
 - **Tiêu chí nghiệm thu (Definition of Done - DoD)**:
   - Khóa tài khoản có hiệu lực ngay lập tức (người dùng bị khóa không thể đăng nhập hoặc tiếp tục thao tác).
   - Chặn Admin tự khóa chính mình (ném Business Exception và hiển thị cảnh báo).
-  - Tạo tài khoản Staff gán chính xác vai trò `ROLE_STAFF`.
+  - Tạo tài khoản Staff gán chính xác vai trò `ROLE_STAFF`; email/SĐT không trùng.
+  - Staff nhận thư và tự đặt mật khẩu qua link một lần trong 30 phút; SMTP lỗi thì rollback thao tác tạo và báo lỗi.
+  - Gửi lại lời mời hoặc đổi email làm link cũ mất hiệu lực. Tài khoản bị khóa không được đặt mật khẩu bằng link.
+  - Giao diện không có chọn role; gửi thêm roleCode/roleId qua POST không làm đổi vai trò hoặc chủ sở hữu dữ liệu.
 
 ---
 
