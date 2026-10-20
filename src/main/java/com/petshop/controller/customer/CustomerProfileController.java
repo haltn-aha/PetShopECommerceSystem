@@ -21,6 +21,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class CustomerProfileController {
 
     private final UserService userService;
+    @ModelAttribute("passwordForm")
+    public PasswordChangeRequestDto passwordForm() { return new PasswordChangeRequestDto(); }
 
     @GetMapping("/profile")
     public String viewProfile(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {

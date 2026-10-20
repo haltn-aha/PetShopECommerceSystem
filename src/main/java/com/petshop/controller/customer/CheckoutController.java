@@ -33,12 +33,13 @@ public class CheckoutController {
     private final OrderService orderService;
     private final UserService userService;
     private final VoucherService voucherService;
+    private final com.petshop.config.ShippingFeeConfig shippingFeeConfig;
 
     @GetMapping
     public String checkoutPage(@AuthenticationPrincipal CustomUserDetails userDetails,
                                Model model) {
         CartDto cart = cartService.getCartForUser(userDetails.getId());
-        if (cart.getItems().isEmpty()) {
+        if (cart.getItems().stream().noneMatch(i -> Boolean.TRUE.equals(i.getIsSelected()))) {
             return "redirect:/cart";
         }
 
@@ -62,6 +63,7 @@ public class CheckoutController {
         }
 
         model.addAttribute("cart", cart);
+        model.addAttribute("shippingFee", shippingFeeConfig.getShippingFee());
         model.addAttribute("addresses", addresses);
         return "customer/checkout";
     }
@@ -84,6 +86,7 @@ public class CheckoutController {
         CartDto cart = cartService.getCartForUser(userDetails.getId());
         if (bindingResult.hasErrors()) {
             model.addAttribute("cart", cart);
+        model.addAttribute("shippingFee", shippingFeeConfig.getShippingFee());
             model.addAttribute("addresses", userService.getCustomerAddresses(userDetails.getId()));
             return "customer/checkout";
         }
@@ -94,6 +97,7 @@ public class CheckoutController {
             return "redirect:/checkout/success/" + order.getOrderCode();
         } catch (IllegalArgumentException | IllegalStateException e) {
             model.addAttribute("cart", cart);
+        model.addAttribute("shippingFee", shippingFeeConfig.getShippingFee());
             model.addAttribute("addresses", userService.getCustomerAddresses(userDetails.getId()));
             model.addAttribute("errorMessage", e.getMessage());
             return "customer/checkout";
@@ -101,7 +105,9 @@ public class CheckoutController {
     }
 
     @GetMapping("/success/{code}")
-    public String orderSuccess(@PathVariable String code, Model model) {
+    public String orderSuccess(@PathVariable String code, @AuthenticationPrincipal CustomUserDetails principal, Model model) {
+        try { orderService.getOrderByCodeForCustomer(code, principal.getId()); }
+        catch (IllegalArgumentException e) { return "error/404"; }
         model.addAttribute("orderCode", code);
         return "customer/order-success";
     }

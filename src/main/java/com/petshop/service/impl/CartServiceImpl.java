@@ -53,7 +53,7 @@ public class CartServiceImpl implements CartService {
         ProductVariant variant = variantRepository.findById(variantId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy biến thể sản phẩm: " + variantId));
 
-        if (variant.getStatus() != ProductVariantStatus.ACTIVE) {
+        if (variant.getStatus() != ProductVariantStatus.ACTIVE || variant.getProduct().getStatus() != com.petshop.entity.enums.ProductStatus.ACTIVE) {
             throw new IllegalArgumentException("Sản phẩm hiện đang tạm dừng bán.");
         }
 
@@ -73,7 +73,8 @@ public class CartServiceImpl implements CartService {
                     .build();
             cartItemRepository.save(item);
         } else {
-            int newQuantity = item.getQuantity() + quantity;
+            if (variant.getStockQuantity() <= 0) throw new IllegalArgumentException("Sản phẩm đã hết hàng.");
+            int newQuantity = (int)Math.min((long)item.getQuantity() + quantity, variant.getStockQuantity());
             if (newQuantity > variant.getStockQuantity()) {
                 newQuantity = variant.getStockQuantity();
             }
@@ -98,6 +99,10 @@ public class CartServiceImpl implements CartService {
         if (newQuantity <= 0) {
             cartItemRepository.delete(item);
         } else {
+            if (item.getVariant().getStockQuantity() <= 0 || item.getVariant().getStatus() != ProductVariantStatus.ACTIVE
+                    || item.getVariant().getProduct().getStatus() != com.petshop.entity.enums.ProductStatus.ACTIVE) {
+                throw new IllegalArgumentException("Sản phẩm hết hàng hoặc tạm dừng bán; vui lòng xóa khỏi giỏ.");
+            }
             int allowed = Math.min(newQuantity, item.getVariant().getStockQuantity());
             item.setQuantity(allowed);
             cartItemRepository.save(item);
@@ -139,12 +144,23 @@ public class CartServiceImpl implements CartService {
     }
 
     private Cart getOrCreateCart(Long userId) {
+        userRepository.findByIdForUpdate(userId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
         return cartRepository.findByUserId(userId).orElseGet(() -> {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản người dùng: " + userId));
             Cart newCart = Cart.builder().user(user).build();
             return cartRepository.save(newCart);
         });
+    }
+
+    @Override
+    @Transactional
+    public void selectItem(Long userId, Long itemId, boolean selected) {
+        Cart cart = getOrCreateCart(userId);
+        CartItem item = cartItemRepository.findById(itemId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mục trong giỏ."));
+        if (!item.getCart().getId().equals(cart.getId())) throw new IllegalArgumentException("Bạn không có quyền chỉnh sửa mục này.");
+        item.setIsSelected(selected);
+        cartItemRepository.save(item);
     }
 
     private CartDto mapToDto(Cart cart) {

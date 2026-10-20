@@ -11,7 +11,7 @@
         <div class="row g-5">
             <div class="col-md-6 text-center">
                 <img th:if="${product.images != null and !product.images.empty}"
-                     th:src="${product.images[0].imageUrl}"
+                     th:src="${product.images.iterator().next().imageUrl}"
                      src="https://placehold.co/500x400?text=Product"
                      class="img-fluid rounded-4 shadow-sm" alt="Product Image">
                 <img th:if="${product.images == null or product.images.empty}"
@@ -30,7 +30,7 @@
                         <select class="form-select" name="variantId" required>
                             <option th:each="v : ${product.variants}"
                                     th:value="${v.id}"
-                                    th:text="${v.variantName + ' - ' + #numbers.formatDecimal(v.price, 0, 'COMMA', 0, 'POINT') + ' đ (Kho: ' + v.stockQuantity + ')'}">
+                                    th:text="${v.variantName + ' - ' + #numbers.formatDecimal(v.price, 0, 'POINT', 0, 'COMMA') + ' đ (Kho: ' + v.stockQuantity + ')'}">
                             </option>
                         </select>
                     </div>

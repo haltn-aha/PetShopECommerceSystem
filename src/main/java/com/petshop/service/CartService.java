@@ -9,4 +9,5 @@ public interface CartService {
     CartDto removeItem(Long userId, Long cartItemId);
     void clearCart(Long userId);
     int getCartItemCount(Long userId);
+    void selectItem(Long userId, Long itemId, boolean selected);
 }

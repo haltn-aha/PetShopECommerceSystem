@@ -21,6 +21,10 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     List<ProductVariant> findByProductIdAndStatus(Long productId, ProductVariantStatus status);
     List<ProductVariant> findByProductId(Long productId);
 
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"product"})
+    List<ProductVariant> findAll();
+
     @Query("SELECT pv FROM ProductVariant pv " +
            "JOIN FETCH pv.product p " +
            "WHERE pv.status = com.petshop.entity.enums.ProductVariantStatus.ACTIVE " +

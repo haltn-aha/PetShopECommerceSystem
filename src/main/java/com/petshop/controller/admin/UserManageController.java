@@ -26,15 +26,17 @@ public class UserManageController {
     @GetMapping
     public String listUsers(@RequestParam(required = false) String keyword,
                             @RequestParam(required = false) String role,
+                            @RequestParam(required = false) String status,
                             @RequestParam(defaultValue = "0") int page,
                             @RequestParam(defaultValue = "10") int size,
                             Model model) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<User> users = userService.getAllUsers(keyword, role, pageable);
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
+        Page<User> users = userService.getAllUsers(keyword, role, status, pageable);
 
         model.addAttribute("users", users);
         model.addAttribute("keyword", keyword);
         model.addAttribute("role", role);
+        model.addAttribute("status", status);
         return "admin/user-list";
     }
 
@@ -74,6 +76,59 @@ public class UserManageController {
             redirectAttributes.addFlashAttribute("successMessage", "Thay đổi trạng thái tài khoản thành công!");
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/users";
+    }
+
+    @GetMapping("/{id}/edit")
+    public String editUserForm(@PathVariable Long id, Model model) {
+        User user = userService.findById(id);
+        com.petshop.dto.admin.UserAdminUpdateDto updateDto = com.petshop.dto.admin.UserAdminUpdateDto.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .roleCode(user.getRole().getCode())
+                .status(user.getStatus())
+                .build();
+        model.addAttribute("userForm", updateDto);
+        model.addAttribute("targetUser", user);
+        return "admin/user-edit";
+    }
+
+    @PostMapping("/{id}/edit")
+    public String updateUser(@AuthenticationPrincipal CustomUserDetails userDetails,
+                             @PathVariable Long id,
+                             @Valid @ModelAttribute("userForm") com.petshop.dto.admin.UserAdminUpdateDto userForm,
+                             BindingResult bindingResult,
+                             RedirectAttributes redirectAttributes,
+                             Model model) {
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("targetUser", userService.findById(id));
+            return "admin/user-edit";
+        }
+
+        try {
+            userService.updateUserByAdmin(id, userForm, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật thông tin tài khoản thành công!");
+            return "redirect:/admin/users";
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("errorMessage", e.getMessage());
+            model.addAttribute("targetUser", userService.findById(id));
+            return "admin/user-edit";
+        }
+    }
+
+    @PostMapping("/{id}/reset-password")
+    public String resetPassword(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                @PathVariable Long id,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            String tempPassword = userService.resetUserPassword(id, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", 
+                    "Đã đặt lại mật khẩu thành công! Mật khẩu mới là: " + tempPassword + " (Vui lòng lưu lại và gửi cho người dùng).");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Không thể đặt lại mật khẩu: " + e.getMessage());
         }
         return "redirect:/admin/users";
     }

@@ -17,6 +17,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class CartController {
 
     private final CartService cartService;
+    private final com.petshop.config.ShippingFeeConfig shippingFeeConfig;
 
     @GetMapping
     public String viewCart(@AuthenticationPrincipal CustomUserDetails userDetails,
@@ -25,6 +26,7 @@ public class CartController {
         CartDto cart = cartService.getCartForUser(userDetails.getId());
         session.setAttribute("cartCount", cart.getTotalQuantity());
         model.addAttribute("cart", cart);
+        model.addAttribute("shippingFee", shippingFeeConfig.getShippingFee());
         return "customer/cart";
     }
 
@@ -48,9 +50,19 @@ public class CartController {
     public String updateQuantity(@AuthenticationPrincipal CustomUserDetails userDetails,
                                  @RequestParam Long itemId,
                                  @RequestParam int quantity,
-                                 HttpSession session) {
-        CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
-        session.setAttribute("cartCount", cart.getTotalQuantity());
+                                 HttpSession session, RedirectAttributes redirect) {
+        try {
+            CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
+            session.setAttribute("cartCount", cart.getTotalQuantity());
+        } catch (IllegalArgumentException e) { redirect.addFlashAttribute("errorMessage", e.getMessage()); }
+        return "redirect:/cart";
+    }
+
+    @PostMapping("/select")
+    public String selectItem(@AuthenticationPrincipal CustomUserDetails principal, @RequestParam Long itemId,
+            @RequestParam(defaultValue="false") boolean selected, RedirectAttributes redirect) {
+        try { cartService.selectItem(principal.getId(),itemId,selected); }
+        catch (IllegalArgumentException e) { redirect.addFlashAttribute("errorMessage",e.getMessage()); }
         return "redirect:/cart";
     }
 

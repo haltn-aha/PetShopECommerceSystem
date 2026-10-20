@@ -32,6 +32,7 @@ public class AuthServiceImpl implements AuthService {
     private final CartRepository cartRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.petshop.service.PasswordResetMailer resetMailer;
 
     @Override
     @Transactional
@@ -46,7 +47,9 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Số điện thoại đã được đăng ký trong hệ thống.");
         }
 
-        if (!request.getPassword().equals(request.getConfirmPassword())) {
+        if (request.getPassword() == null || request.getPassword().isBlank() || request.getPassword().length() < 6
+                || request.getPassword().getBytes(StandardCharsets.UTF_8).length > 72
+                || !request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp.");
         }
 
@@ -81,6 +84,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void initiatePasswordReset(String email) {
+        resetMailer.requireConfigured();
         log.info("Initiating password reset for email: {}", email);
         userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(user -> {
             String rawToken = UUID.randomUUID().toString();
@@ -92,7 +96,8 @@ public class AuthServiceImpl implements AuthService {
                     .expiresAt(LocalDateTime.now().plusMinutes(30))
                     .build();
             tokenRepository.save(resetToken);
-            log.info("Created reset token for user ID {}. Raw token (simulated email delivery): {}", user.getId(), rawToken);
+            resetMailer.send(user.getEmail(), rawToken);
+            log.info("Sent password reset instructions for user ID {}", user.getId());
         });
     }
 
@@ -108,15 +113,20 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPasswordWithToken(String token, String newPassword) {
+        if (newPassword == null || newPassword.isBlank() || newPassword.length() < 6
+                || newPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Mật khẩu tối thiểu 6 ký tự, tối đa 72 byte UTF-8.");
+        }
         String tokenHash = hashToken(token);
-        PasswordResetToken resetToken = tokenRepository.findByTokenHash(tokenHash)
+        PasswordResetToken resetToken = tokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> new IllegalArgumentException("Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
 
-        if (resetToken.getUsedAt() != null || resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (resetToken.getUsedAt() != null || !resetToken.getExpiresAt().isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("Token đặt lại mật khẩu đã hết hạn hoặc đã được sử dụng.");
         }
 
         User user = resetToken.getUser();
+        user.setMustChangePassword(false);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 

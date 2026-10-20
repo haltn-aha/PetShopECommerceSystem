@@ -13,6 +13,9 @@ import java.util.Optional;
 @Repository
 public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
     Optional<PasswordResetToken> findByTokenHash(String tokenHash);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM PasswordResetToken t WHERE t.tokenHash = :hash")
+    Optional<PasswordResetToken> findByTokenHashForUpdate(@Param("hash") String hash);
     Optional<PasswordResetToken> findByUserIdAndUsedAtIsNullAndExpiresAtAfter(Long userId, LocalDateTime now);
 
     @Modifying

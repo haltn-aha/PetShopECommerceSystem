@@ -31,6 +31,7 @@ public class UserServiceImpl implements UserService {
     private final UserAddressRepository addressRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,10 +50,14 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateProfile(Long userId, ProfileUpdateRequestDto request) {
-        User user = findById(userId);
+        User user = lockUser(userId);
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            user.setPhone(request.getPhone().trim());
+            String phone = request.getPhone().trim();
+            userRepository.findByPhone(phone).ifPresent(existing -> {
+                if (!existing.getId().equals(userId)) throw new IllegalArgumentException("Số điện thoại đã được dùng bởi tài khoản khác.");
+            });
+            user.setPhone(phone);
         }
         if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
             user.setAvatarUrl(request.getAvatarUrl().trim());
@@ -64,13 +69,20 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void changePassword(Long userId, PasswordChangeRequestDto request) {
-        User user = findById(userId);
+        User user = lockUser(userId);
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác.");
         }
-        if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
+        if (!java.util.Objects.equals(request.getNewPassword(), request.getConfirmNewPassword())) {
             throw new IllegalArgumentException("Mật khẩu mới xác nhận không khớp.");
         }
+        if (request.getNewPassword() == null || request.getNewPassword().isBlank() || request.getNewPassword().length() < 6 || request.getNewPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Mật khẩu mới tối thiểu 6 ký tự.");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("Mật khẩu mới phải khác mật khẩu hiện tại.");
+        }
+        user.setMustChangePassword(false);
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         log.info("Changed password for user ID: {}", userId);
@@ -85,7 +97,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserAddress addAddress(Long customerId, AddressCreateDto request) {
-        User customer = findById(customerId);
+        User customer = lockUser(customerId);
         boolean isFirst = addressRepository.countByCustomerIdAndIsDeletedFalse(customerId) == 0;
         boolean makeDefault = isFirst || Boolean.TRUE.equals(request.getIsDefault());
 
@@ -111,6 +123,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void setDefaultAddress(Long customerId, Long addressId) {
+        lockUser(customerId);
         UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
         addressRepository.resetDefaultAddresses(customerId);
@@ -121,6 +134,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteAddress(Long customerId, Long addressId) {
+        lockUser(customerId);
         UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
         address.setIsDeleted(true);
@@ -130,20 +144,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<User> getAllUsers(String keyword, String roleCode, Pageable pageable) {
-        if (roleCode != null && !roleCode.isBlank()) {
-            return userRepository.findByRoleCode(roleCode.trim(), pageable);
-        }
-        if (keyword != null && !keyword.isBlank()) {
-            return userRepository.findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(keyword.trim(), keyword.trim(), pageable);
-        }
-        return userRepository.findAll(pageable);
+    public Page<User> getAllUsers(String keyword, String roleCode, String status, Pageable pageable) {
+        String cleanKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+        String cleanRoleCode = (roleCode != null && !roleCode.isBlank()) ? roleCode.trim() : null;
+        return userRepository.searchUsers(cleanKeyword, cleanRoleCode, (status == null || status.isBlank()) ? null : status.trim().toUpperCase(), pageable);
     }
 
     @Override
     @Transactional
     public void toggleUserStatus(Long userId, Long adminId) {
-        User user = findById(userId);
+        roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
+        User user = lockUser(userId);
+        if ("ACTIVE".equals(user.getStatus()) && "ADMIN".equals(user.getRole().getCode())
+                && userRepository.countByRoleCodeAndStatus("ADMIN", "ACTIVE") <= 1) {
+            throw new IllegalArgumentException("Phải giữ ít nhất một quản trị viên đang hoạt động.");
+        }
         if (user.getId().equals(adminId)) {
             throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
         }
@@ -156,6 +171,10 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public User createStaffAccount(RegisterRequestDto request) {
+        if (request.getPassword() == null || request.getPassword().isBlank() || request.getPassword().length() < 6 || request.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
+                || !request.getPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Mật khẩu tối thiểu 6 ký tự và xác nhận phải khớp.");
+        }
         if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail().trim())) {
             throw new IllegalArgumentException("Email nhân viên đã tồn tại.");
         }
@@ -180,5 +199,85 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         return userRepository.save(staff);
+    }
+
+    @Override
+    @Transactional
+    public void updateUserByAdmin(Long userId, com.petshop.dto.admin.UserAdminUpdateDto request, Long currentAdminId) {
+        roleRepository.lockAdminRole().orElseThrow(() -> new IllegalStateException("Thiếu vai trò ADMIN."));
+        User user = lockUser(userId);
+        if (!java.util.Set.of("ADMIN", "STAFF", "CUSTOMER").contains(request.getRoleCode())
+                || !java.util.Set.of("ACTIVE", "LOCKED").contains(request.getStatus())) {
+            throw new IllegalArgumentException("Vai trò hoặc trạng thái không hợp lệ.");
+        }
+        if ("ACTIVE".equals(user.getStatus()) && "ADMIN".equals(user.getRole().getCode())
+                && (!"ACTIVE".equals(request.getStatus()) || !"ADMIN".equals(request.getRoleCode()))
+                && userRepository.countByRoleCodeAndStatus("ADMIN", "ACTIVE") <= 1) {
+            throw new IllegalArgumentException("Phải giữ ít nhất một quản trị viên đang hoạt động.");
+        }
+
+        if (user.getId().equals(currentAdminId) && !"ACTIVE".equalsIgnoreCase(request.getStatus())) {
+            throw new IllegalArgumentException("Không thể tự khóa tài khoản của chính mình.");
+        }
+
+        if (user.getId().equals(currentAdminId) && !"ADMIN".equalsIgnoreCase(request.getRoleCode())) {
+            throw new IllegalArgumentException("Không thể tự hạ cấp quyền quản trị của chính mình.");
+        }
+
+        // Check email uniqueness if modified
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            String newEmail = request.getEmail().trim().toLowerCase();
+            userRepository.findByEmail(newEmail).ifPresent(existing -> {
+                if (!existing.getId().equals(user.getId())) {
+                    throw new IllegalArgumentException("Email '" + newEmail + "' đã được sử dụng bởi tài khoản khác.");
+                }
+            });
+            user.setEmail(newEmail);
+        }
+
+        // Check phone uniqueness if modified
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            String newPhone = request.getPhone().trim();
+            userRepository.findByPhone(newPhone).ifPresent(existing -> {
+                if (!existing.getId().equals(user.getId())) {
+                    throw new IllegalArgumentException("Số điện thoại '" + newPhone + "' đã được sử dụng bởi tài khoản khác.");
+                }
+            });
+            user.setPhone(newPhone);
+        }
+
+        // Update role
+        if (!user.getRole().getCode().equalsIgnoreCase(request.getRoleCode())) {
+            Role newRole = roleRepository.findByCode(request.getRoleCode().trim().toUpperCase())
+                    .orElseThrow(() -> new IllegalArgumentException("Vai trò không hợp lệ: " + request.getRoleCode()));
+            user.setRole(newRole);
+        }
+
+        user.setFullName(request.getFullName().trim());
+        user.setStatus(request.getStatus().trim().toUpperCase());
+        userRepository.save(user);
+        log.info("Admin {} updated details for user {}", currentAdminId, userId);
+    }
+
+    @Override
+    @Transactional
+    public String resetUserPassword(Long userId, Long currentAdminId) {
+        User user = lockUser(userId);
+        // Generate a temporary password with 96 bits of cryptographic randomness.
+        byte[] randomBytes = new byte[12];
+        new java.security.SecureRandom().nextBytes(randomBytes);
+        String tempPassword = "Pet@" + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+        user.setMustChangePassword(true);
+        user.setPasswordHash(passwordEncoder.encode(tempPassword));
+        userRepository.save(user);
+        log.info("Admin {} reset password for user {}", currentAdminId, userId);
+        return tempPassword;
+    }
+
+    private User lockUser(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
+        entityManager.refresh(user, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return user;
     }
 }

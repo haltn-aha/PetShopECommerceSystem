@@ -111,6 +111,11 @@ mvn clean spring-boot:run
 Sau khi ứng dụng khởi động thành công (thấy log `Started PetShopApplication in ... seconds`), truy cập hệ thống tại trình duyệt:  
 👉 **URL**: [http://localhost:8080](http://localhost:8080)
 
+Ở profile `dev`, ứng dụng tự mở URL này trong trình duyệt mặc định sau khi khởi động thành công.
+Nếu đổi cổng hoặc context path, URL tự mở sẽ theo cấu hình thực tế. DevTools restart sẽ không mở thêm tab.
+Để tắt tự mở, đặt biến môi trường `AUTO_OPEN_BROWSER=false` hoặc tham số `--petshop.browser.auto-open=false`.
+Chức năng này không hoạt động ở profile `test` hoặc khi không dùng profile `dev`.
+
 ---
 
 ## 5. Tài khoản mẫu đăng nhập (Seed Credentials)

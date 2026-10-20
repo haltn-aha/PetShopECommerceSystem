@@ -26,7 +26,7 @@ public class OrderProcessController {
                              @RequestParam(defaultValue = "0") int page,
                              @RequestParam(defaultValue = "10") int size,
                              Model model) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
         Page<Order> orders = orderService.getOrdersForStaff(status, pageable);
 
         model.addAttribute("orders", orders);

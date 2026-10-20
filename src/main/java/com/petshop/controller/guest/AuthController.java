@@ -57,8 +57,12 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public String sendResetToken(@RequestParam String email, RedirectAttributes redirectAttributes) {
-        authService.initiatePasswordReset(email);
-        redirectAttributes.addFlashAttribute("infoMessage", "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đi.");
+        try {
+            authService.initiatePasswordReset(email);
+            redirectAttributes.addFlashAttribute("infoMessage", "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đi.");
+        } catch (IllegalStateException | org.springframework.mail.MailException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Gửi email chưa khả dụng. Vui lòng liên hệ quản trị viên để đặt lại mật khẩu.");
+        }
         return "redirect:/forgot-password";
     }
 

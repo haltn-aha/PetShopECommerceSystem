@@ -36,19 +36,27 @@ public class OrderServiceImpl implements OrderService {
     private final VoucherRepository voucherRepository;
     private final VoucherService voucherService;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final com.petshop.config.ShippingFeeConfig shippingFeeConfig;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional
     public Order checkoutOrder(Long customerId, CheckoutSubmitDto request) {
         log.info("Processing checkout for customer ID: {}", customerId);
 
-        User customer = userRepository.findById(customerId)
+        if (request.getPaymentMethod() != PaymentMethod.COD) {
+            throw new IllegalArgumentException("Thanh toán VNPay chưa được cấu hình; vui lòng chọn COD.");
+        }
+        User customer = userRepository.findByIdForUpdate(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Khách hàng không tồn tại: " + customerId));
 
-        Cart cart = cartRepository.findByUserIdWithItems(customerId)
+        if (!"ACTIVE".equals(customer.getStatus()) || !"CUSTOMER".equals(customer.getRole().getCode())) {
+            throw new IllegalArgumentException("Tài khoản không được phép đặt hàng.");
+        }
+        Cart cart = cartRepository.findByUserId(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Giỏ hàng rỗng."));
 
-        List<CartItem> selectedItems = cart.getItems().stream()
+        List<CartItem> selectedItems = cartItemRepository.findByCartId(cart.getId()).stream()
                 .filter(i -> Boolean.TRUE.equals(i.getIsSelected()))
                 .toList();
 
@@ -58,7 +66,7 @@ public class OrderServiceImpl implements OrderService {
 
         // 1. Calculate Subtotal & Validate Product/Variant Active Status
         BigDecimal subtotal = BigDecimal.ZERO;
-        for (CartItem ci : selectedItems) {
+        for (CartItem ci : selectedItems.stream().sorted(java.util.Comparator.comparing(i -> i.getVariant().getId())).toList()) {
             ProductVariant variant = ci.getVariant();
             if (variant.getProduct().getStatus() != ProductStatus.ACTIVE 
                     || variant.getStatus() != ProductVariantStatus.ACTIVE) {
@@ -75,6 +83,9 @@ public class OrderServiceImpl implements OrderService {
         String voucherCodeSnapshot = null;
 
         if (request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
+            // Serialize quota validation and reservation with admin edits and other checkouts.
+            voucherRepository.findByCodeForUpdate(request.getVoucherCode().trim().toUpperCase())
+                    .orElseThrow(() -> new IllegalArgumentException("Mã voucher không tồn tại."));
             VoucherApplyResultDto vResult = voucherService.validateAndCalculateDiscount(
                     request.getVoucherCode().trim(), customerId, subtotal);
             if (vResult.isValid()) {
@@ -82,12 +93,13 @@ public class OrderServiceImpl implements OrderService {
                 discountAmount = vResult.getDiscountAmount();
                 voucherCodeSnapshot = vResult.getVoucherCode();
                 voucherService.reserveVoucher(vResult.getVoucherId());
+                voucherService.markCustomerVoucherUsed(customerId, vResult.getVoucherId());
             } else {
                 throw new IllegalArgumentException("Mã voucher không hợp lệ: " + vResult.getMessage());
             }
         }
 
-        BigDecimal shippingFee = new BigDecimal("30000");
+        BigDecimal shippingFee = shippingFeeConfig.getShippingFee();
         BigDecimal totalAmount = subtotal.subtract(discountAmount).add(shippingFee);
         if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
             totalAmount = BigDecimal.ZERO;
@@ -99,7 +111,7 @@ public class OrderServiceImpl implements OrderService {
                 : OrderStatus.PENDING_CONFIRMATION;
 
         String orderCode = "ORD-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                + "-" + (int) (Math.random() * 900 + 100);
+                + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
         Order order = Order.builder()
                 .orderCode(orderCode)
@@ -126,7 +138,7 @@ public class OrderServiceImpl implements OrderService {
 
         // 4. Create OrderItems & Atomically Deduct Stock
         List<Long> purchasedVariantIds = new ArrayList<>();
-        for (CartItem ci : selectedItems) {
+        for (CartItem ci : selectedItems.stream().sorted(java.util.Comparator.comparing(i -> i.getVariant().getId())).toList()) {
             ProductVariant variant = ci.getVariant();
             int qty = ci.getQuantity();
 
@@ -206,7 +218,10 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void customerCancelOrder(Long orderId, Long customerId, String reason) {
-        Order order = getOrderDetailForCustomer(orderId, customerId);
+        Order order = lockOrder(orderId);
+        if (!order.getCustomer().getId().equals(customerId)) {
+            throw new IllegalArgumentException("Bạn không có quyền truy cập đơn hàng này.");
+        }
 
         if (order.getOrderStatus() != OrderStatus.PENDING_CONFIRMATION && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new IllegalStateException("Đơn hàng đã được xác nhận hoặc đang xử lý, không thể tự hủy.");
@@ -234,7 +249,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void confirmOrder(Long orderId, Long staffId) {
-        Order order = getOrderDetailForStaff(orderId);
+        Order order = lockOrder(orderId);
         if (order.getOrderStatus() != OrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Chỉ có thể xác nhận đơn hàng đang ở trạng thái chờ xác nhận (PENDING_CONFIRMATION). Trạng thái hiện tại: " + order.getOrderStatus());
         }
@@ -245,7 +260,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void markPreparing(Long orderId, Long staffId) {
-        Order order = getOrderDetailForStaff(orderId);
+        Order order = lockOrder(orderId);
         if (order.getOrderStatus() != OrderStatus.CONFIRMED) {
             throw new IllegalStateException("Chỉ có thể đóng gói đơn hàng đang ở trạng thái đã xác nhận (CONFIRMED). Trạng thái hiện tại: " + order.getOrderStatus());
         }
@@ -256,7 +271,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void markShipping(Long orderId, Long staffId) {
-        Order order = getOrderDetailForStaff(orderId);
+        Order order = lockOrder(orderId);
         if (order.getOrderStatus() != OrderStatus.PREPARING) {
             throw new IllegalStateException("Chỉ có thể giao vận đơn hàng đang ở trạng thái chuẩn bị hàng (PREPARING). Trạng thái hiện tại: " + order.getOrderStatus());
         }
@@ -267,7 +282,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void markCompleted(Long orderId, Long staffId) {
-        Order order = getOrderDetailForStaff(orderId);
+        Order order = lockOrder(orderId);
         if (order.getOrderStatus() != OrderStatus.SHIPPING) {
             throw new IllegalStateException("Chỉ có thể hoàn tất đơn hàng đang ở trạng thái đang giao hàng (SHIPPING). Trạng thái hiện tại: " + order.getOrderStatus());
         }
@@ -275,6 +290,9 @@ public class OrderServiceImpl implements OrderService {
 
         if (order.getPaymentMethod() == PaymentMethod.COD) {
             order.setPaymentStatus(PaymentStatus.PAID);
+        }
+        if (order.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new IllegalStateException("Chỉ hoàn tất đơn hàng đã thanh toán.");
         }
         order.setCompletedAt(LocalDateTime.now());
         transitionStatus(order, OrderStatus.COMPLETED, "Giao hàng thành công", staff);
@@ -286,7 +304,7 @@ public class OrderServiceImpl implements OrderService {
         if (rejectReason == null || rejectReason.isBlank()) {
             throw new IllegalArgumentException("Nhân viên từ chối đơn bắt buộc phải nhập lý do.");
         }
-        Order order = getOrderDetailForStaff(orderId);
+        Order order = lockOrder(orderId);
         if (order.getOrderStatus() != OrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Chỉ có thể từ chối đơn hàng đang ở trạng thái chờ xác nhận (PENDING_CONFIRMATION). Trạng thái hiện tại: " + order.getOrderStatus());
         }
@@ -299,14 +317,32 @@ public class OrderServiceImpl implements OrderService {
     public void cancelExpiredPendingPaymentOrders() {
         List<PaymentTransaction> expiredTxns = paymentTransactionRepository.findExpiredPendingTransactions(LocalDateTime.now());
         for (PaymentTransaction txn : expiredTxns) {
-            txn.setTransactionStatus(TransactionStatus.EXPIRED);
-            paymentTransactionRepository.save(txn);
-
-            Order order = txn.getOrder();
+            Order order = lockOrder(txn.getOrder().getId());
+            PaymentTransaction current = paymentTransactionRepository.findByIdForUpdate(txn.getId()).orElseThrow();
+            entityManager.refresh(current, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            if (current.getTransactionStatus() != TransactionStatus.PENDING || current.getExpiresAt() == null
+                    || !current.getExpiresAt().isBefore(LocalDateTime.now())) continue;
+            current.setTransactionStatus(TransactionStatus.EXPIRED);
+            paymentTransactionRepository.save(current);
             if (order.getOrderStatus() == OrderStatus.PENDING_PAYMENT) {
                 performOrderCancellation(order, CancelType.PAYMENT_EXPIRED, "Hết thời gian 15 phút thanh toán trực tuyến", null);
             }
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Order getOrderByCodeForCustomer(String code, Long customerId) {
+        Order order = orderRepository.findByOrderCode(code).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        if (!order.getCustomer().getId().equals(customerId)) throw new IllegalArgumentException("Không có quyền xem đơn hàng.");
+        return order;
+    }
+
+    private Order lockOrder(Long orderId) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        entityManager.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return orderRepository.findByIdWithDetails(orderId).orElseThrow();
     }
 
     private void transitionStatus(Order order, OrderStatus newStatus, String reason, User changedBy) {
@@ -343,17 +379,21 @@ public class OrderServiceImpl implements OrderService {
             order.setPaymentStatus(PaymentStatus.CANCELLED);
         }
 
-        orderRepository.save(order);
+        orderRepository.saveAndFlush(order);
 
+        // Use the same lock order as checkout: voucher before SKU, and SKUs by ID.
+        if (order.getVoucher() != null) voucherRepository.findByIdForUpdate(order.getVoucher().getId()).orElseThrow();
         // 1. Rollback Stock
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        for (OrderItem item : items) {
+        for (OrderItem item : items.stream().sorted(java.util.Comparator.comparing(i -> i.getVariant().getId())).toList()) {
             variantRepository.restoreStock(item.getVariant().getId(), item.getQuantity());
         }
 
         // 2. Rollback Voucher
         if (order.getVoucher() != null) {
+            voucherRepository.findByIdForUpdate(order.getVoucher().getId()).orElseThrow();
             voucherService.releaseVoucher(order.getVoucher().getId());
+            voucherService.restoreCustomerVoucher(order.getCustomer().getId(), order.getVoucher().getId());
         }
 
         // 3. Audit History

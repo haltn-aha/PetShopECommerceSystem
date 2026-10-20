@@ -29,6 +29,7 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
     private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final com.petshop.repository.UserRepository userRepository;
 
     /**
      * Password encoder bean utilizing BCrypt hashing (compatible with $2a$10$ seed hashes).
@@ -63,6 +64,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            .addFilterBefore(new com.petshop.config.security.AccountStateFilter(userRepository),
+                    org.springframework.security.web.access.intercept.AuthorizationFilter.class)
             // 1. Authentication Provider Registration
             .authenticationProvider(authenticationProvider())
 
