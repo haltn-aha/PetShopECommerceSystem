@@ -86,6 +86,8 @@ spring:
    ```
 3. Profile `dev` tự bao gồm `local`, nên Run như bình thường sẽ đọc file riêng nếu có. Có thể bật tường minh bằng `--spring.profiles.active=dev,local`. Profile `test` không tự nạp cấu hình local.
 
+File `application-local*.yml`/`.properties` được loại khỏi JAR để chia sẻ bản build an toàn. Nếu chạy JAR từ thư mục dự án và muốn đọc file local, thêm `--spring.config.additional-location=optional:file:./src/main/resources/` vào lệnh Java.
+
 > ⚠️ **LƯU Ý CỰC KỲ QUAN TRỌNG VỀ HIBERNATE DDL-AUTO**:
 > Trong `application.yml`, thuộc tính `spring.jpa.hibernate.ddl-auto` được đặt là **`none`** hoặc **`validate`**.  
 > **TUYỆT ĐỐI KHÔNG** đổi thành `update` hoặc `create`.  

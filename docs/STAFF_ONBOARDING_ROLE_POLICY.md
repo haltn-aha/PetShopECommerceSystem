@@ -63,6 +63,8 @@ Các biến cần cấu hình tại máy chạy ứng dụng, không ghi mật k
 
 Cách điền trực tiếp khi demo: copy `src/main/resources/application-local.yml.example` thành `application-local.yml`, điền `spring.mail.username` và `spring.mail.password`. Profile dev tự bao gồm local nên Run bình thường sẽ đọc cấu hình riêng. File local bị Git bỏ qua; file example chỉ chứa giá trị trống để chia sẻ.
 
+File local cũng bị loại khỏi JAR khi đóng gói. Nếu chạy JAR tại thư mục dự án và muốn dùng cấu hình riêng này, thêm `--spring.config.additional-location=optional:file:./src/main/resources/`. Bản JAR chuyển cho thành viên khác dùng cấu hình SMTP của máy họ.
+
 ```text
 SMTP_HOST=<máy chủ SMTP>
 SMTP_PORT=587
