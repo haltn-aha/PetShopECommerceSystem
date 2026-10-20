@@ -61,6 +61,8 @@ Tích hợp chọn lọc lớp gửi mail HTML; bổ sung thư mời Staff và �
 
 Các biến cần cấu hình tại máy chạy ứng dụng, không ghi mật khẩu mail vào Git:
 
+Cách điền trực tiếp khi demo: copy `src/main/resources/application-local.yml.example` thành `application-local.yml`, điền `spring.mail.username` và `spring.mail.password`. Profile dev tự bao gồm local nên Run bình thường sẽ đọc cấu hình riêng. File local bị Git bỏ qua; file example chỉ chứa giá trị trống để chia sẻ.
+
 ```text
 SMTP_HOST=<máy chủ SMTP>
 SMTP_PORT=587

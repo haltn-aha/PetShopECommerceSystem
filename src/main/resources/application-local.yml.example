@@ -1,0 +1,16 @@
+# Copy thanh application-local.yml va dien thong tin tren may ban.
+# Khong dua application-local.yml chua mat khau len Git.
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ""
+    password: ""
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+
+petshop:
+  mail-from: ${spring.mail.username}
+  public-base-url: http://localhost:8080

@@ -76,7 +76,7 @@ spring:
 ```
 
 ### Cách đặt mật khẩu DB riêng mà KHÔNG bị xung đột Git (Local Credentials Override):
-1. Tạo một file tên là `application-local.yml` tại `src/main/resources/` (file này đã được đưa vào `.gitignore`, sẽ không bao giờ bị push lên Git).
+1. Tạo một file tên là `application-local.yml` tại `src/main/resources/` (đã được `.gitignore` bỏ qua). Có thể copy từ `application-local.yml.example`, điền Gmail gửi thư và mật khẩu ứng dụng trong file riêng này.
 2. Điền thông tin tài khoản SQL Server cá nhân của bạn:
    ```yaml
    spring:
@@ -84,8 +84,7 @@ spring:
        username: sa
        password: MatKhauCuaBan123
    ```
-3. Khi chạy bằng dòng lệnh hoặc cấu hình IDE, kích hoạt profile `local`:
-   `-Dspring.profiles.active=dev,local`
+3. Profile `dev` tự bao gồm `local`, nên Run như bình thường sẽ đọc file riêng nếu có. Có thể bật tường minh bằng `--spring.profiles.active=dev,local`. Profile `test` không tự nạp cấu hình local.
 
 > ⚠️ **LƯU Ý CỰC KỲ QUAN TRỌNG VỀ HIBERNATE DDL-AUTO**:
 > Trong `application.yml`, thuộc tính `spring.jpa.hibernate.ddl-auto` được đặt là **`none`** hoặc **`validate`**.  
