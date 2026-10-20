@@ -89,7 +89,7 @@ public class AuthServiceImpl implements AuthService {
         resetMailer.requireConfigured();
         log.info("Initiating password reset for email: {}", email);
         userRepository.findByEmail(email.trim().toLowerCase()).filter(user -> "ACTIVE".equals(user.getStatus())).ifPresent(user -> {
-            accountAccessService.sendLink(user.getId(), false, false);
+                accountAccessService.sendLink(user.getId(), false);
             log.info("Sent password reset instructions for user ID {}", user.getId());
         });
     }

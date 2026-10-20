@@ -26,11 +26,17 @@ Trạng thái ACTIVE ở đây là quyền được phép nhận tài khoản; b
 
 Thu hồi token bằng mốc UsedAt (đã dùng hoặc đã bị thu hồi), giữ nguyên ExpiresAt ban đầu. Cách này giữ CHECK ExpiresAt > CreatedAt của schema hiện có, kể cả khi gửi lại ngay trong cùng giây.
 
-## 3. Reset mật khẩu bởi Admin
+## 3. Hỗ trợ mật khẩu Staff bởi Admin
 
-Admin yêu cầu reset → gửi link qua email → người dùng tự chọn mật khẩu. Khi gửi thành công, mật khẩu cũ bị thay bằng bí mật ngẫu nhiên và session cũ bị thu hồi ở request tiếp theo. Không có mật khẩu tạm trên màn hình. SMTP lỗi thì giữ nguyên mật khẩu và token trước thao tác.
+Chỉ Admin đang hoạt động được yêu cầu gửi link cho Staff ACTIVE đã hoàn tất nhận tài khoản. Backend từ chối Customer, Admin, Staff bị khóa và Staff đang chờ đặt mật khẩu, kể cả khi gọi trực tiếp URL. Với Staff đang chờ, dùng Gửi lại lời mời; với Staff bị khóa, cần xử lý lý do khóa trước.
+
+Admin gửi link → Staff nhận email → Staff tự đặt và xác nhận mật khẩu mới. Link dùng một lần trong 30 phút. Gửi link chỉ thay token, không đổi PasswordHash hoặc MustChangePassword và không ngắt phiên đăng nhập. Nếu Staff chưa mở thư, mật khẩu và phiên cũ vẫn dùng được. Khi Staff xác nhận thành công, mật khẩu mới có hiệu lực, các token còn lại bị thu hồi và phiên dùng mật khẩu cũ bị đăng xuất ở request tiếp theo. SMTP lỗi thì giữ nguyên mật khẩu và token trước thao tác. Không hiển thị mật khẩu tạm hoặc để Admin chọn mật khẩu thay Staff.
+
+Giữ chung trang Quản lý tài khoản, chia tab Tất cả / Khách hàng / Nhân viên / Quản trị viên. Tab là bộ lọc; quyền được kiểm tra tại backend. Chỉ Staff đủ điều kiện có nút Hỗ trợ mật khẩu; Staff chờ nhận tài khoản có Gửi lại. Khách hàng và quản trị viên tự dùng Quên mật khẩu. Cấp Staff và hỗ trợ truy cập thuộc luồng quản lý tài khoản UC-21; khóa/mở khóa thuộc UC-21.1. Không mô tả thao tác này là Admin cưỡng chế đổi mật khẩu hoặc chuyển vai trò.
 
 Quên mật khẩu do người dùng tự yêu cầu vẫn gửi link nhưng không vô hiệu hóa mật khẩu đang dùng, để người ngoài không thể làm khóa tài khoản chỉ bằng cách nhập email vào form.
+
+Nếu nghi ngờ Staff bị lộ tài khoản hoặc nghỉ việc, Admin dùng Khóa tài khoản để thu hồi truy cập ngay. Gửi link hỗ trợ không thay thế nghiệp vụ khóa.
 
 ## 4. Vì sao bỏ chuyển Staff ↔ Customer?
 
@@ -82,10 +88,12 @@ Demo: Admin tạo Staff → mở hộp thư nhận → bấm link → tự đặ
 
 Demo role: mở màn hình sửa Staff/Customer, role chỉ đọc; thử POST roleCode khác vẫn giữ role cũ và lịch sử của cùng UserId.
 
+Demo hỗ trợ mật khẩu: dùng Staff đã nhận tài khoản và đang đăng nhập ở một cửa sổ khác → Admin mở tab Nhân viên, bấm Hỗ trợ mật khẩu → Staff tiếp tục mở hồ sơ được bằng phiên cũ → mở link trong email và đặt mật khẩu mới → request tiếp theo của phiên cũ chuyển về đăng nhập → đăng nhập bằng mật khẩu mới. Tab Khách hàng/Quản trị viên không có nút hỗ trợ mật khẩu; Staff đang chờ chỉ có Gửi lại, Staff bị khóa không có hai thao tác gửi link.
+
 ## 7. Database và triển khai
 
 Không thêm migration/cột/bảng trong đợt này. Tận dụng Users.MustChangePassword và PasswordResetTokens đã có từ bản PetShop hiện tại. Máy đang dùng schema cũ từ GitHub main cần đồng bộ các migration trước đây trong database/migrations; đây là điều kiện của bản baseline, không phải schema mới cho gửi mail.
 
 Không gửi email đến Staff thật trong kiểm thử tự động. Test SMTP nhận thư chỉ trên localhost và test nghiệp vụ dùng database thử riêng. Cấu hình SMTP thật và kiểm tra Inbox thực tế là bước cần làm trên máy demo.
 
-Kết quả bản cuối: 44/44 test Maven và 52/52 kiểm tra SQL Server (38 hồi quy + 14 quy trình Staff). Có test giữ nguyên CHECK ExpiresAt > CreatedAt khi gửi lại ngay trong cùng giây, SMTP lỗi rollback tạo/reset, token một lần và POST không đổi role. JAR đã đóng gói thành công.
+Kết quả cập nhật chính sách 21/10: 47/47 test Maven, đóng gói JAR thành công; 15/15 kiểm tra SQL Server tập trung vào luồng Staff trên database thử mới, SMTP giả lập. Xác nhận chặn Customer/Admin, Staff chờ/bị khóa; gửi link giữ nguyên mật khẩu/phiên, chỉ xác nhận mật khẩu mới mới thu hồi phiên; SMTP lỗi giữ lại token trước thao tác. Không thay schema hoặc ghi vào PetShopDB thật. Lần tích hợp trước đã có 52/52 kiểm tra SQL Server (38 hồi quy + 14 quy trình Staff); đây là kết quả lịch sử trước khi điều chỉnh chính sách.

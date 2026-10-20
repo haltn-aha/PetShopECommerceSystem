@@ -9,7 +9,6 @@ import java.security.*;
 import java.time.LocalDateTime;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,11 +19,10 @@ public class AccountAccessService {
     private final UserRepository users;
     private final PasswordResetTokenRepository tokens;
     private final PasswordResetMailer mailer;
-    private final PasswordEncoder encoder;
     private final EntityManager em;
 
     @Transactional
-    public void sendLink(Long userId, boolean invitation, boolean revokeCurrentPassword) {
+    public void sendLink(Long userId, boolean invitation) {
         mailer.requireConfigured();
         var user = users.findByIdForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản."));
@@ -38,17 +36,13 @@ public class AccountAccessService {
         if (invitation && (!"STAFF".equals(user.getRole().getCode()) || !Boolean.TRUE.equals(user.getMustChangePassword()))) {
             throw new IllegalArgumentException("Chỉ gửi lại lời mời cho Staff đang chờ đặt mật khẩu.");
         }
-        if (revokeCurrentPassword) {
-            user.setPasswordHash(encoder.encode(randomSecret()));
-            user.setMustChangePassword(true);
-            users.saveAndFlush(user);
-        }
         LocalDateTime now = LocalDateTime.now();
         tokens.revokeUnusedForUser(userId, now);
         String rawToken = randomSecret();
         tokens.saveAndFlush(PasswordResetToken.builder().user(user).tokenHash(hash(rawToken))
                 .expiresAt(now.plusMinutes(30)).build());
-        // SMTP failure rolls back the account/password/token changes in this transaction.
+        // Issuing a link never changes a password or interrupts an existing session.
+        // SMTP failure rolls back token changes (and account creation for invitations).
         if (invitation) mailer.sendStaffInvitation(user.getEmail(), user.getFullName(), rawToken);
         else mailer.send(user.getEmail(), rawToken);
     }

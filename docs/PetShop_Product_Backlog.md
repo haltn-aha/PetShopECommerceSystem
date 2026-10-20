@@ -33,7 +33,7 @@ Bảng tổng hợp 26 tính năng của dự án với đầy đủ 6 cột b�
 | **Authentication** | **FEAT-05**: Quên mật khẩu & Khôi phục qua Email Token | UC-7 | **Should Have** | Sprint 3 | **Member 1** |
 | **Account Management** | **FEAT-02**: Quản lý hồ sơ cá nhân & Đổi mật khẩu | UC-8, UC-8.1, UC-8.2, UC-8.3, UC-17, UC-17.1, UC-17.2, UC-17.3 | **Must Have** | Sprint 1 | **Member 1** |
 | **Account Management** | **FEAT-03**: Quản lý sổ địa chỉ giao hàng nhận hàng | UC-9, UC-9.1, UC-9.2 | **Must Have** | Sprint 2 | **Member 1** |
-| **Account Management** | **FEAT-04**: Quản trị tài khoản người dùng & Cấp quyền nhân viên | UC-21, UC-21.1 | **Should Have** | Sprint 2 | **Member 1** |
+| **Account Management** | **FEAT-04**: Quản trị tài khoản người dùng & Cấp tài khoản nhân viên | UC-21, UC-21.1 | **Should Have** | Sprint 2 | **Member 1** |
 | **Product Catalog** | **FEAT-06**: Xem danh mục & Khám phá danh sách sản phẩm | UC-1, UC-2, UC-2.1 | **Must Have** | Sprint 1 | **Member 2** |
 | **Product Catalog** | **FEAT-07**: Xem thông tin chi tiết sản phẩm & Biến thể SKU | UC-2.2 | **Must Have** | Sprint 1 | **Member 2** |
 | **Product Catalog** | **FEAT-08**: Tìm kiếm sản phẩm & Bộ lọc nâng cao đa tiêu chí | UC-3 | **Should Have** | Sprint 2 | **Member 2** |
@@ -124,8 +124,8 @@ Bảng tổng hợp 26 tính năng của dự án với đầy đủ 6 cột b�
 #### `FEAT-04`: Quản trị tài khoản người dùng & Cấp tài khoản nhân viên qua email
 - **Phân hệ**: Account Management
 - **User Story**: Là một Quản trị viên (Admin), tôi muốn tra cứu danh sách người dùng, cấp tài khoản cho nhân viên mới, khóa/mở khóa tài khoản để kiểm soát an toàn vận hành hệ thống.
-- **Mô tả nghiệp vụ**: Admin tìm kiếm tài khoản theo Họ tên, Email, SĐT, lọc vai trò và ACTIVE/LOCKED; cấp tài khoản STAFF bằng họ tên, email bắt buộc và SĐT. Hệ thống gửi liên kết dùng một lần, hết hạn sau 30 phút, để Staff tự đặt mật khẩu; Admin không nhập hoặc nhìn thấy mật khẩu. Có gửi lại lời mời và vô hiệu hóa link cũ. Admin reset mật khẩu cũng gửi liên kết qua email, không hiện mật khẩu tạm. Không hỗ trợ đổi CUSTOMER ↔ STAFF hoặc thăng cấp ADMIN; vai trò được cố định khi tạo, dữ liệu lịch sử không chuyển chủ.
-- **Use Cases liên quan**: `UC-21` (Manage Account Base UC / CRUD), `UC-21.1` (Lock/Unlock Account).
+- **Mô tả nghiệp vụ**: Admin tìm kiếm tài khoản theo Họ tên, Email, SĐT; trang quản lý chung chia tab Tất cả/Khách hàng/Nhân viên/Quản trị viên và lọc ACTIVE/LOCKED. Cấp tài khoản STAFF bằng họ tên, email bắt buộc và SĐT. Hệ thống gửi liên kết dùng một lần, hết hạn sau 30 phút, để Staff tự đặt mật khẩu; Admin không nhập hoặc nhìn thấy mật khẩu. Staff chưa nhận tài khoản dùng Gửi lại lời mời, vô hiệu hóa link cũ. Admin chỉ được gửi link hỗ trợ mật khẩu cho STAFF ACTIVE đã nhận tài khoản; không hỗ trợ reset Customer/Admin tại màn hình quản lý. Gửi link giữ nguyên mật khẩu và phiên hiện tại đến khi Staff tự xác nhận mật khẩu mới; SMTP lỗi rollback token. Customer/Admin tự dùng Quên mật khẩu (UC-7). Không hỗ trợ đổi CUSTOMER ↔ STAFF hoặc thăng cấp ADMIN; vai trò được cố định khi tạo, dữ liệu lịch sử không chuyển chủ.
+- **Use Cases liên quan**: `UC-21` (Tra cứu, cập nhật, cấp Staff và hỗ trợ truy cập Staff qua email), `UC-21.1` (Lock/Unlock Account).
 - **Mức ưu tiên**: **Should Have** | **Sprint**: **Sprint 2** | **Phụ trách**: **Member 1**
 - **Thực thể CSDL & Thành phần kỹ thuật**: `Roles`, `Users`; `AdminUserController`, `admin/user-list.html`, `admin/user-detail.html`, `admin/staff-create.html`.
 - **Tiêu chí nghiệm thu (Definition of Done - DoD)**:
@@ -134,6 +134,8 @@ Bảng tổng hợp 26 tính năng của dự án với đầy đủ 6 cột b�
   - Tạo tài khoản Staff gán chính xác vai trò `ROLE_STAFF`; email/SĐT không trùng.
   - Staff nhận thư và tự đặt mật khẩu qua link một lần trong 30 phút; SMTP lỗi thì rollback thao tác tạo và báo lỗi.
   - Gửi lại lời mời hoặc đổi email làm link cũ mất hiệu lực. Tài khoản bị khóa không được đặt mật khẩu bằng link.
+  - Chỉ Admin ACTIVE gửi link hỗ trợ cho STAFF ACTIVE đã đặt mật khẩu. Customer/Admin, Staff bị khóa hoặc đang chờ nhận tài khoản bị chặn cả ở backend.
+  - Gửi link không đổi hash/cờ mật khẩu hoặc thu hồi phiên. Staff xác nhận mật khẩu mới mới làm phiên cũ hết hiệu lực; token một lần, hạn 30 phút.
   - Giao diện không có chọn role; gửi thêm roleCode/roleId qua POST không làm đổi vai trò hoặc chủ sở hữu dữ liệu.
 
 ---

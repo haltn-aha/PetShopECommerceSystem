@@ -123,6 +123,8 @@ Chức năng này không hoạt động ở profile `test` hoặc khi không dù
 
 Quy trình cấp Staff hiện tại: Admin nhập họ tên/email/SĐT, hệ thống gửi link dùng một lần để Staff tự đặt mật khẩu. Cần cấu hình SMTP trước khi tạo; không có mật khẩu ban đầu để Admin đọc/gửi miệng. Màn hình sửa tài khoản không hỗ trợ đổi role. Chi tiết và cấu hình: [docs/STAFF_ONBOARDING_ROLE_POLICY.md](docs/STAFF_ONBOARDING_ROLE_POLICY.md).
 
+Trang quản lý tài khoản chia tab theo loại người dùng. Admin chỉ gửi link hỗ trợ mật khẩu cho Staff ACTIVE đã nhận tài khoản; gửi link giữ nguyên đăng nhập đến khi Staff tự xác nhận mật khẩu mới. Staff chờ nhận tài khoản dùng Gửi lại lời mời. Customer/Admin tự dùng Quên mật khẩu trên trang đăng nhập.
+
 Hệ thống đã nạp sẵn 3 tài khoản mặc định đại diện cho 3 Role với mật khẩu đã mã hóa BCrypt (`$2a$10$...`):
 
 | Vai trò / Role | Email đăng nhập | Số điện thoại | Mật khẩu mặc định / Password | Quyền truy cập các tuyến đường / Access Scope |

@@ -205,7 +205,7 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User saved = userRepository.saveAndFlush(staff);
-        accountAccessService.sendLink(saved.getId(), true, false);
+        accountAccessService.sendLink(saved.getId(), true);
         return saved;
     }
 
@@ -258,16 +258,30 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void resetUserPassword(Long userId, Long currentAdminId) {
+    public void requestStaffPasswordReset(Long userId, Long currentAdminId) {
+        User actor = userRepository.findById(currentAdminId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy quản trị viên."));
+        if (!"ADMIN".equals(actor.getRole().getCode()) || !"ACTIVE".equals(actor.getStatus())) {
+            throw new IllegalArgumentException("Chỉ quản trị viên đang hoạt động được hỗ trợ mật khẩu Staff.");
+        }
         User user = lockUser(userId);
-        accountAccessService.sendLink(user.getId(), false, true);
-        log.info("Admin {} requested password setup email for user {}", currentAdminId, userId);
+        if (!"STAFF".equals(user.getRole().getCode())) {
+            throw new IllegalArgumentException("Chỉ hỗ trợ mật khẩu cho tài khoản Staff. Khách hàng tự dùng Quên mật khẩu.");
+        }
+        if (!"ACTIVE".equals(user.getStatus())) {
+            throw new IllegalArgumentException("Staff đang bị khóa. Hãy mở khóa trước khi hỗ trợ mật khẩu.");
+        }
+        if (Boolean.TRUE.equals(user.getMustChangePassword())) {
+            throw new IllegalArgumentException("Staff chưa nhận tài khoản. Hãy dùng Gửi lại lời mời.");
+        }
+        accountAccessService.sendLink(user.getId(), false);
+        log.info("Admin {} requested password recovery link for staff {}", currentAdminId, userId);
     }
 
     @Override
     @Transactional
     public void resendStaffInvitation(Long userId) {
-        accountAccessService.sendLink(userId, true, false);
+        accountAccessService.sendLink(userId, true);
     }
 
     private User lockUser(Long userId) {

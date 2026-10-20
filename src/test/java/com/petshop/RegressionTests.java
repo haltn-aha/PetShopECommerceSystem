@@ -128,18 +128,83 @@ class RegressionTests {
         customer.setStatus("ACTIVE");customer.setRole(staff.getRole());users.saveAndFlush(customer);
         mvc.perform(get("/account/profile").with(user(old))).andExpect(redirectedUrl("/login?expired=true"));
     }
-    @Test void resetPasswordRevokesSessionAndEmailsOneTimeLink() throws Exception {
-        var old=new CustomUserDetails(customer);userService.resetUserPassword(customer.getId(),admin.getId());
-        assertTrue(users.findById(customer.getId()).orElseThrow().getMustChangePassword());
-        mvc.perform(get("/account/profile").with(user(old))).andExpect(redirectedUrl("/login?expired=true"));
+    @Test void staffRecoveryKeepsCurrentLoginUntilStaffConfirmsNewPassword() throws Exception {
+        var old=new CustomUserDetails(staff);
+        String originalHash=staff.getPasswordHash(), customerHash=customer.getPasswordHash();
+        mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(redirectedUrl("/admin/users")).andExpect(flash().attributeExists("successMessage"));
+        assertEquals(originalHash,users.findById(staff.getId()).orElseThrow().getPasswordHash());
+        assertFalse(users.findById(staff.getId()).orElseThrow().getMustChangePassword());
+        mvc.perform(get("/account/profile").with(user(old))).andExpect(status().isOk());
+        mvc.perform(post("/login").with(csrf()).param("username",staff.getEmail()).param("password","Secret@123"))
+                .andExpect(redirectedUrl("/staff/dashboard"));
         var link = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(emailService).sendPasswordResetEmail(eq(customer.getEmail()), anyString(), link.capture());
+        verify(emailService).sendPasswordResetEmail(eq(staff.getEmail()), anyString(), link.capture());
         String token = java.net.URI.create(link.getValue()).getQuery().substring("token=".length());
         mvc.perform(post("/reset-password").with(csrf()).param("token",token).param("newPassword","Changed@123").param("confirmPassword","Changed@123"))
                 .andExpect(redirectedUrl("/login"));
-        assertFalse(users.findById(customer.getId()).orElseThrow().getMustChangePassword());
-        assertTrue(encoder.matches("Changed@123",users.findById(customer.getId()).orElseThrow().getPasswordHash()));
+        assertFalse(users.findById(staff.getId()).orElseThrow().getMustChangePassword());
+        assertTrue(encoder.matches("Changed@123",users.findById(staff.getId()).orElseThrow().getPasswordHash()));
+        assertFalse(encoder.matches("Secret@123",users.findById(staff.getId()).orElseThrow().getPasswordHash()));
+        mvc.perform(get("/account/profile").with(user(old))).andExpect(redirectedUrl("/login?expired=true"));
+        assertEquals(customerHash,users.findById(customer.getId()).orElseThrow().getPasswordHash());
         assertFalse(auth.verifyPasswordResetToken(token));
+    }
+
+    @Test void adminPasswordSupportRejectsCustomersAdminsAndIneligibleStaff() throws Exception {
+        String customerHash=customer.getPasswordHash(), adminHash=admin.getPasswordHash(), staffHash=staff.getPasswordHash();
+        for(var target:List.of(customer,admin)) {
+            assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(target.getId(),admin.getId()));
+            mvc.perform(post("/admin/users/"+target.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
+                    .andExpect(redirectedUrl("/admin/users")).andExpect(flash().attributeExists("errorMessage"));
+        }
+        staff.setStatus("LOCKED");users.saveAndFlush(staff);
+        assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),admin.getId()));
+        mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(flash().attributeExists("errorMessage"));
+        staff.setStatus("ACTIVE");staff.setMustChangePassword(true);users.saveAndFlush(staff);
+        assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),admin.getId()));
+        mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(flash().attributeExists("errorMessage"));
+        assertEquals(0,tokens.count());verifyNoInteractions(emailService);
+        assertEquals(customerHash,customer.getPasswordHash());assertEquals(adminHash,admin.getPasswordHash());assertEquals(staffHash,staff.getPasswordHash());
+    }
+
+    @Test void onlyActiveAdminCanRequestStaffPasswordSupport() throws Exception {
+        for(var actor:List.of(customer,staff)) {
+            assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),actor.getId()));
+            mvc.perform(post("/admin/users/"+staff.getId()+"/reset-password").with(user(new CustomUserDetails(actor))).with(csrf()))
+                    .andExpect(redirectedUrl("/error/403"));
+        }
+        admin.setStatus("LOCKED");users.saveAndFlush(admin);
+        assertThrows(IllegalArgumentException.class,()->userService.requestStaffPasswordReset(staff.getId(),admin.getId()));
+        assertEquals(0,tokens.count());verifyNoInteractions(emailService);
+    }
+
+    @Test void userManagementTabsAndActionsMatchAccountTypeAndState() throws Exception {
+        String html=mvc.perform(get("/admin/users").with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(html.contains("/admin/users/"+staff.getId()+"/reset-password"));
+        assertFalse(html.contains("/admin/users/"+customer.getId()+"/reset-password"));
+        assertFalse(html.contains("/admin/users/"+admin.getId()+"/reset-password"));
+        assertFalse(html.contains("/admin/users/"+staff.getId()+"/resend-invitation"));
+        String filtered=mvc.perform(get("/admin/users").param("role","STAFF").param("keyword","Staff").with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andExpect(model().attribute("role","STAFF")).andReturn().getResponse().getContentAsString();
+        assertTrue(filtered.contains(staff.getEmail()));assertFalse(filtered.contains(customer.getEmail()));
+        assertTrue(filtered.matches("(?s).*name=\"role\"[^>]*value=\"STAFF\".*"));
+        staff.setMustChangePassword(true);users.saveAndFlush(staff);
+        String pending=mvc.perform(get("/admin/users").with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(pending.contains("/admin/users/"+staff.getId()+"/reset-password"));
+        assertTrue(pending.contains("/admin/users/"+staff.getId()+"/resend-invitation"));
+        staff.setStatus("LOCKED");users.saveAndFlush(staff);
+        String locked=mvc.perform(get("/admin/users").with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(locked.contains("/admin/users/"+staff.getId()+"/reset-password"));
+        assertFalse(locked.contains("/admin/users/"+staff.getId()+"/resend-invitation"));
+        String customers=mvc.perform(get("/admin/users").param("role","CUSTOMER").with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(customers.contains("href=\"/admin/users/create\""));
     }
 
     @Test void staffCanReceiveEmailSetPasswordAndLoginWithoutAdminChoosingPassword() throws Exception {

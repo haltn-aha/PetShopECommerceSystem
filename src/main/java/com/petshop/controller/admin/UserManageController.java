@@ -123,10 +123,10 @@ public class UserManageController {
                                 @PathVariable Long id,
                                 RedirectAttributes redirectAttributes) {
         try {
-            userService.resetUserPassword(id, userDetails.getId());
-            redirectAttributes.addFlashAttribute("successMessage", "Đã gửi email đặt mật khẩu mới. Liên kết dùng một lần, có hiệu lực 30 phút.");
+            userService.requestStaffPasswordReset(id, userDetails.getId());
+            redirectAttributes.addFlashAttribute("successMessage", "Đã gửi link hỗ trợ mật khẩu cho Staff, hiệu lực 30 phút và dùng một lần. Mật khẩu hiện tại vẫn dùng được đến khi Staff xác nhận mật khẩu mới.");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Không thể đặt lại mật khẩu: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", "Không thể gửi link hỗ trợ mật khẩu Staff: " + e.getMessage());
         }
         return "redirect:/admin/users";
     }
