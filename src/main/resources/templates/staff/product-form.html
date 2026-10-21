@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Danh Sách Sản Phẩm - Pet Shop</title>
+</head>
+
+<body>
+
+<div layout:fragment="content">
+    <div class="container py-4">
+        <div class="row g-4">
+
+            <!-- 1. SIDEBAR FILTER -->
+            <aside class="col-lg-3">
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold border-bottom pb-3 mb-3 d-flex align-items-center gap-2">
+                            <i class="bi bi-sliders text-success"></i> Bộ Lọc Sản Phẩm
+                        </h5>
+
+                        <!-- BỘ LỌC TÌM KIẾM THEO TÊN -->
+                        <div class="mb-4">
+                            <h6 class="text-uppercase text-muted fw-bold small mb-2">Tìm kiếm</h6>
+                            <form th:action="@{/products}" method="get" id="searchForm">
+                                <!-- Lưu lại giá trị category và sort hiện tại khi submit search -->
+                                <input type="hidden" name="categoryId" th:value="${selectedCategoryId}">
+                                <input type="hidden" name="sort" th:value="${selectedSort}">
+
+                                <div class="input-group">
+                                    <input type="text" name="keyword" th:value="${keyword}"
+                                           class="form-control form-control-sm"
+                                           placeholder="Nhập tên sản phẩm...">
+                                    <button type="submit" class="btn btn-pet-primary btn-sm text-white">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- BỘ LỌC DANH MỤC -->
+                        <div class="mb-3">
+                            <h6 class="text-uppercase text-muted fw-bold small mb-3">Danh mục</h6>
+                            <div class="d-grid gap-2">
+                                <a th:href="@{/products(keyword=${keyword}, sort=${selectedSort})}"
+                                   th:classappend="${selectedCategoryId == null} ? 'btn-pet-primary text-white' : 'btn-light text-dark'"
+                                   class="btn text-start fw-medium rounded-2">
+                                    🐾 Tất cả
+                                </a>
+                                <th:block th:each="cat : ${categories}">
+                                    <a th:href="@{/products(categoryId=${cat.id}, keyword=${keyword}, sort=${selectedSort})}"
+                                       th:classappend="${selectedCategoryId == cat.id} ? 'btn-pet-primary text-white' : 'btn-light text-dark'"
+                                       class="btn text-start fw-medium rounded-2"
+                                       th:text="${cat.name}">
+                                        Danh mục
+                                    </a>
+                                </th:block>
+                            </div>
+                        </div>
+
+                        <!-- NÚT XÓA BỘ LỌC -->
+                        <div class="pt-2 border-top">
+                            <a th:href="@{/products}" class="btn btn-outline-secondary btn-sm w-100 rounded-2">
+                                <i class="bi bi-arrow-counterclockwise"></i> Xóa tất cả bộ lọc
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 2. PRODUCT LIST SECTION -->
+            <section class="col-lg-9">
+
+                <!-- BAR SẮP XẾP VÀ SỐ LƯỢNG -->
+                <div class="card border-0 shadow-sm rounded-3 mb-4">
+                    <div class="card-body d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 py-2">
+                        <span class="text-muted small fw-medium" th:if="${products != null}">
+                            Hiển thị <strong th:text="${products.numberOfElements}">0</strong> /
+                            <strong th:text="${products.totalElements}">0</strong> sản phẩm
+                        </span>
+
+                        <!-- SẮP XẾP -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="sortSelect" class="small text-muted text-nowrap">Sắp xếp:</label>
+                            <select id="sortSelect" class="form-select form-select-sm w-auto" onchange="changeSort(this.value)">
+                                <option value="default" th:selected="${selectedSort == 'default' || selectedSort == null}">Mặc định</option>
+                                <option value="price_asc" th:selected="${selectedSort == 'price_asc'}">Giá: Thấp đến Cao</option>
+                                <option value="price_desc" th:selected="${selectedSort == 'price_desc'}">Giá: Cao đến Thấp</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LƯỚI SẢN PHẨM (BOOTSTRAP GRID) -->
+                <div th:if="${products != null and !products.empty}" class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-4">
+                    <div class="col" th:each="product : ${products.content}">
+                        <div class="card h-100 border-0 shadow-sm rounded-3 overflow-hidden hover-shadow transition">
+                            <img th:src="${product.image != null ? product.image : '/images/default-product.jpg'}"
+                                 th:alt="${product.name}"
+                                 class="card-img-top object-fit-cover" style="height: 200px;">
+
+                            <div class="card-body d-flex flex-column justify-content-between p-3">
+                                <div>
+                                    <span class="badge bg-success-subtle text-success fw-bold text-uppercase mb-2"
+                                          th:text="${product.category != null ? product.category.name : 'Sản phẩm'}">
+                                        Category
+                                    </span>
+                                    <h6 class="card-title fw-bold text-dark text-truncate mb-2"
+                                        th:text="${product.name}" th:title="${product.name}">
+                                        Tên sản phẩm
+                                    </h6>
+                                </div>
+
+                                <div class="mt-3">
+                                    <p class="text-success fw-bold fs-5 mb-2"
+                                       th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT')} + ' đ'">
+                                        0 đ
+                                    </p>
+                                    <a th:href="@{/products/{id}(id=${product.id})}"
+                                       class="btn btn-outline-success w-100 btn-sm rounded-2">
+                                        Xem chi tiết
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TRẠNG THÁI RỖNG (EMPTY STATE) -->
+                <div th:if="${products == null or products.empty}" class="card border-0 shadow-sm text-center py-5">
+                    <div class="card-body">
+                        <p class="fs-1 mb-2">🐾</p>
+                        <h5 class="fw-bold">Không tìm thấy sản phẩm nào</h5>
+                        <p class="text-muted small">Em hãy thử tìm từ khóa khác hoặc xóa bộ lọc xem sao nhé.</p>
+                        <a th:href="@{/products}" class="btn btn-pet-primary rounded-2 px-4 mt-2 text-white">
+                            Xóa bộ lọc
+                        </a>
+                    </div>
+                </div>
+
+                <!-- PHÂN TRANG (PAGINATION) -->
+                <div th:if="${products != null and products.totalPages > 1}" class="d-flex justify-content-center pt-4">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination pagination-sm gap-1">
+                            <!-- Nút Trang trước -->
+                            <li class="page-item" th:classappend="${products.first} ? 'disabled'">
+                                <a class="page-item btn btn-sm btn-outline-secondary rounded-2"
+                                   th:href="@{/products(page=${products.number - 1}, keyword=${keyword}, categoryId=${selectedCategoryId}, sort=${selectedSort})}">
+                                    &laquo;
+                                </a>
+                            </li>
+
+                            <!-- Các số trang -->
+                            <li class="page-item"
+                                th:each="i : ${#numbers.sequence(0, products.totalPages - 1)}">
+                                <a th:href="@{/products(page=${i}, keyword=${keyword}, categoryId=${selectedCategoryId}, sort=${selectedSort})}"
+                                   th:text="${i + 1}"
+                                   th:classappend="${i == products.number} ? 'btn-success text-white' : 'btn-outline-secondary'"
+                                   class="btn btn-sm rounded-2 px-3">
+                                    1
+                                </a>
+                            </li>
+
+                            <!-- Nút Trang sau -->
+                            <li class="page-item" th:classappend="${products.last} ? 'disabled'">
+                                <a class="page-item btn btn-sm btn-outline-secondary rounded-2"
+                                   th:href="@{/products(page=${products.number + 1}, keyword=${keyword}, categoryId=${selectedCategoryId}, sort=${selectedSort})}">
+                                    &raquo;
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+
+            </section>
+        </div>
+    </div>
+
+    <!-- JS XỬ LÝ SẮP XẾP -->
+    <script th:inline="javascript">
+        function changeSort(sortValue) {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('sort', sortValue);
+            urlParams.set('page', '0'); // Reset về trang đầu tiên khi đổi kiểu sắp xếp
+            window.location.search = urlParams.toString();
+        }
+    </script>
+</div>
+
+</body>
+</html>

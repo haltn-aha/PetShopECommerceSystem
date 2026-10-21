@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="vi"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+
+<head>
+    <title>Danh TEST sản phẩm - PetShop</title>
+</head>
+
+<body>
+<div layout:fragment="content" class="container py-4">
+
+    <h2 class="mb-4">Danh sách sản phẩm</h2>
+
+    <form th:action="@{/products}" method="get"
+          class="row g-3 mb-4">
+
+        <div class="col-md-5">
+            <input type="text"
+                   name="keyword"
+                   class="form-control"
+                   placeholder="Tìm kiếm sản phẩm..."
+                   th:value="${keyword}">
+        </div>
+
+        <div class="col-md-3">
+            <select name="categoryId" class="form-select">
+                <option value="">Tất cả danh mục</option>
+                <option th:each="category : ${categories}"
+                        th:value="${category.id}"
+                        th:text="${category.name}"
+                        th:selected="${category.id == selectedCategoryId}">
+                </option>
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-success w-100">
+                Tìm kiếm
+            </button>
+        </div>
+    </form>
+
+    <div class="row g-4"
+         th:if="${products != null and !products.isEmpty()}">
+
+        <div class="col-md-4 col-lg-3"
+             th:each="product : ${products}">
+
+            <div class="card h-100 shadow-sm">
+                <img th:if="${product.imageUrl != null}"
+                     th:src="${product.imageUrl}"
+                     class="card-img-top"
+                     style="height: 200px; object-fit: cover;"
+                     alt="Ảnh sản phẩm">
+
+                <div class="card-body">
+                    <h5 class="card-title"
+                        th:text="${product.name}">
+                        Tên sản phẩm
+                    </h5>
+
+                    <p class="card-text"
+                       th:text="${product.description}">
+                        Mô tả sản phẩm
+                    </p>
+
+                    <a th:href="@{/products/{id}(id=${product.id})}"
+                       class="btn btn-outline-success">
+                        Xem chi tiết
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:if="${products == null or products.isEmpty()}"
+         class="alert alert-info">
+        Không tìm thấy sản phẩm phù hợp.
+    </div>
+
+</div>
+</body>
+</html>

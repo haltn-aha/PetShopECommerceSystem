@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Chi Tiết Sản Phẩm - PetShop</title>
+</head>
+<body>
+<div layout:fragment="content" class="container my-5">
+    <div class="row">
+        <!-- Ảnh sản phẩm -->
+        <div class="col-md-6">
+            <img th:src="@{/images/product-default.png}" class="img-fluid rounded shadow-sm" alt="Product Image">
+        </div>
+
+        <!-- Thông tin chi tiết và chọn Variant -->
+        <div class="col-md-6">
+            <h2 th:text="${product.name}">Tên sản phẩm</h2>
+            <h4 class="text-danger fw-bold my-3" id="product-price" th:text="${product.price + ' đ'}">Giá cơ bản</h4>
+            <p th:text="${product.description}">Mô tả sản phẩm...</p>
+
+            <!-- Form chọn Variant gửi vào giỏ hàng -->
+            <form th:action="@{/cart/add}" method="post">
+                <input type="hidden" name="productId" th:value="${product.id}">
+
+                <!-- Khu vực chọn Variant (Size / Màu / Loại) -->
+                <div class="mb-3" th:if="${not #lists.isEmpty(variants)}">
+                    <label class="form-label fw-bold">Phân loại (Variant):</label>
+                    <select name="variantId" id="variantSelect" class="form-select" onchange="updatePrice(this)">
+                        <option value="" disabled selected>-- Chọn phân loại --</option>
+                        <option th:each="v : ${variants}"
+                                th:value="${v.id}"
+                                th:data-price="${v.price}"
+                                th:text="${v.sku + ' - ' + v.price + ' đ'}">
+                            Size M - 150,000 đ
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Số lượng -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Số lượng:</label>
+                    <input type="number" name="quantity" value="1" min="1" class="form-control w-25">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg w-100">Thêm Vào Giỏ Hàng</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Script nhỏ đổi giá theo Variant được chọn -->
+<script>
+    function updatePrice(select) {
+        let selectedOption = select.options[select.selectedIndex];
+        let price = selectedOption.getAttribute("data-price");
+        if (price) {
+            document.getElementById("product-price").innerText = Number(price).toLocaleString() + " đ";
+        }
+    }
+</script>
+</body>
+</html>

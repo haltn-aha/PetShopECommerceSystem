@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main-layout}">
+<head>
+    <title>Trang Chủ - PetShop</title>
+</head>
+<body>
+<div layout:fragment="content">
+
+    <section class="py-5 bg-white border-bottom">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <span class="badge bg-warning text-dark mb-2 px-3 py-2 fw-semibold">Chào mừng đến với PetShop</span>
+                    <h1 class="display-5 fw-bold text-dark mb-3">Tất cả cho sức khỏe & hạnh phúc của thú cưng</h1>
+                    <p class="lead text-muted mb-4">Khám phá bộ sưu tập thức ăn, đồ chơi và phụ kiện cao cấp dành riêng cho chó mèo. Cam kết chất lượng, giao hàng nhanh chóng trên toàn quốc.</p>
+                    <div class="d-flex gap-3">
+                        <a th:href="@{/products}" class="btn btn-success btn-lg px-4">Mua sắm ngay</a>
+                        <a th:href="@{/products}" class="btn btn-outline-secondary btn-lg px-4">Xem danh mục</a>
+                    </div>
+                </div>
+                <div class="col-lg-6 text-center mt-4 mt-lg-0">
+                    <img src="https://i.pinimg.com/736x/6f/0c/41/6f0c41bbcee6821a3a47dbc9be070635.jpg" alt="Thú cưng" class="img-fluid rounded-4 shadow">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Danh mục nổi bật -->
+    <section class="py-5 bg-light">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold">Danh Mục Nổi Bật</h2>
+                <p class="text-muted">Bạn đang cần gì?</p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='THUC-AN')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
+                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
+                            <h6 class="fw-bold text-dark mb-0">Thức Ăn & Pate</h6>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='DO-CHOI')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
+                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1535930891776-0c2dfb7fda1a?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
+                            <h6 class="fw-bold text-dark mb-0">Đồ Chơi</h6>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='PHU-KIEN')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
+                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
+                            <h6 class="fw-bold text-dark mb-0">Phụ Kiện</h6>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-3">
+                    <a th:href="@{/products(category='CAT-VE-SINH')}" class="text-decoration-none">
+                        <div class="card h-100 border-0 shadow-sm text-center p-3 rounded-4 overflow-hidden">
+                            <div class="ratio ratio-16x9 mb-3 rounded-3 overflow-hidden" style="background: url('https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&auto=format&fit=crop&q=80') center/cover;"></div>
+                            <h6 class="fw-bold text-dark mb-0">Vệ Sinh & Sức Khỏe</h6>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sản phẩm bán chạy -->
+    <section class="py-5 bg-white">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold">Sản Phẩm Bán Chạy Nhất</h2>
+                <p class="text-muted">Những sản phẩm được khách hàng yêu thích nhất</p>
+            </div>
+
+            <!-- Nếu có sản phẩm nổi bật -->
+            <div class="row g-4" th:if="${featuredProducts != null and not #lists.isEmpty(featuredProducts)}">
+                <div class="col-12 col-sm-6 col-lg-3" th:each="product : ${featuredProducts}">
+                    <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
+
+
+                        <img src="https://product.hstatic.net/200000264739/product/hat_royal_canin_poodle_adult_cho_cho_e666148a882542eda7bdaf9a2c002c30_master.jpg"
+                             class="card-img-top" alt="Product" style="height: 200px; object-fit: cover;">
+
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-secondary" th:text="${product.petType}">DOG</span>
+                                <small class="text-warning">
+                                    <i class="bi bi-star-fill"></i> 5.0
+                                </small>
+                            </div>
+                            <h6 class="card-title fw-bold text-truncate" th:text="${product.name}">Tên sản phẩm</h6>
+
+                            <!-- Giá tĩnh an toàn tránh lỗi format số -->
+                            <p class="text-danger fw-bold fs-5 mb-3">Liên hệ</p>
+
+                            <a th:href="@{/products/{slug}(slug=${product.slug})}" class="btn btn-outline-primary mt-auto w-100">Chi Tiết</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nếu danh sách trống -->
+            <div class="text-center py-5 bg-light rounded-3" th:if="${featuredProducts == null or #lists.isEmpty(featuredProducts)}">
+                <p class="text-muted fs-5 mb-0">Hiện chưa có sản phẩm bán chạy nào được cập nhật.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tại sao chọn chúng tôi? -->
+    <section class="py-5 border-top bg-light">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold">Tại sao chọn chúng tôi?</h2>
+                <p class="text-muted">Cam kết mang lại dịch vụ tốt nhất cho thú cưng của bạn</p>
+            </div>
+            <div class="row g-4 text-center">
+                <div class="col-md-3">
+                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
+                        <i class="bi bi-truck fs-1 text-success mb-2"></i>
+                        <h5 class="fw-bold mt-2">Giao Hàng Nhanh</h5>
+                        <p class="text-muted small mb-0">Giao hàng siêu tốc trong 24h trên toàn quốc.</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
+                        <i class="bi bi-shield-check fs-1 text-success mb-2"></i>
+                        <h5 class="fw-bold mt-2">Thanh Toán An Toàn</h5>
+                        <p class="text-muted small mb-0">Bảo mật tuyệt đối cho mọi giao dịch thanh toán.</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
+                        <i class="bi bi-award fs-1 text-warning mb-2"></i>
+                        <h5 class="fw-bold mt-2">Sản Phẩm Chính Hãng</h5>
+                        <p class="text-muted small mb-0">100% sản phẩm được kiểm định chất lượng rõ ràng.</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
+                        <i class="bi bi-headset fs-1 text-danger mb-2"></i>
+                        <h5 class="fw-bold mt-2">Hỗ Trợ Chuyên Sâu</h5>
+                        <p class="text-muted small mb-0">Tư vấn từ các chuyên gia thú y giàu kinh nghiệm.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
+</body>
+</html>
