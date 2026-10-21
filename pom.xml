@@ -28,6 +28,10 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
         <!-- ================================================================= -->
         <!-- 1. Spring Boot Web & MVC                                         -->
         <!-- ================================================================= -->
@@ -152,6 +156,17 @@
 
     <build>
         <plugins>
+            <!-- Keep private machine credentials out of distributable JARs. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>application-local*.yml</exclude>
+                        <exclude>application-local*.properties</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <!-- Spring Boot Executable Packaging Plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>

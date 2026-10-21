@@ -84,10 +84,10 @@
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="badge bg-secondary" th:text="${product.petType}">DOG</span>
-                                <small class="text-warning"><i class="bi bi-star-fill"></i> <span th:text="${product.avgRating}">5.0</span></small>
+                                <small class="text-warning"><i class="bi bi-star-fill"></i> <span th:text="${product.reviewCount > 0 ? product.avgRating : 'Chưa có đánh giá'}"></span></small>
                             </div>
                             <h6 class="card-title fw-bold text-truncate" th:text="${product.name}">Tên sản phẩm</h6>
-                            <p class="text-danger fw-bold fs-5 mb-3" th:text="${#numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">150.000 đ</p>
+                            <p class="text-danger fw-bold fs-5 mb-3" th:text="${#numbers.formatDecimal(product.minPrice != null ? product.minPrice : 0, 0, 'POINT', 0, 'COMMA') + ' đ'}">150.000 đ</p>
                             <a th:href="@{/products/{slug}(slug=${product.slug})}" class="btn btn-outline-primary mt-auto w-100">Chi Tiết</a>
                         </div>
                     </div>

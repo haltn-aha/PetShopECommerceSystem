@@ -212,7 +212,7 @@
                                 <span th:if="${tx.transactionStatus != null and tx.transactionStatus.name() == 'FAILED'}" class="badge bg-danger">Thất bại</span>
                             </div>
                             <div class="text-muted">
-                                Phương thức: <span class="fw-semibold text-dark" th:text="${tx.paymentMethod}">VNPAY</span> | 
+                                Phương thức: <span class="fw-semibold text-dark" th:text="${tx.paymentMethod}">VNPAY</span> |
                                 Số tiền: <strong class="text-danger" th:text="${#numbers.formatDecimal(tx.amount, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
                             </div>
                             <div th:if="${tx.paidAt != null}" class="text-muted mt-1">

@@ -23,7 +23,7 @@ public class ProductCatalogController {
                                @RequestParam(defaultValue = "0") int page,
                                @RequestParam(defaultValue = "12") int size,
                                Model model) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
         Page<ProductSummaryDto> productPage = catalogService.searchAndFilterProducts(filter, pageable);
 
         model.addAttribute("products", productPage);
@@ -35,10 +35,14 @@ public class ProductCatalogController {
 
     @GetMapping("/products/{slug}")
     public String productDetail(@PathVariable String slug, Model model) {
-        Product product = catalogService.getProductBySlug(slug);
-        model.addAttribute("product", product);
-        model.addAttribute("relatedProducts", catalogService.getFeaturedProducts(4));
-        return "guest/product-detail";
+        try {
+            Product product = catalogService.getProductBySlug(slug);
+            model.addAttribute("product", product);
+            model.addAttribute("relatedProducts", catalogService.getFeaturedProducts(4));
+            return "guest/product-detail";
+        } catch (IllegalArgumentException e) {
+            return "error/404";
+        }
     }
 
     @GetMapping("/categories/{code}")

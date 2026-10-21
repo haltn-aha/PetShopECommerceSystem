@@ -1,12 +1,8 @@
 package com.petshop.config;
 
 import com.petshop.config.security.CustomAccessDeniedHandler;
+import com.petshop.config.security.CustomAuthenticationSuccessHandler;
 import com.petshop.config.security.CustomUserDetailsService;
-import com.petshop.config.security.JwtAuthenticationFilter;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,8 +27,9 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
+    private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
     private final CustomAccessDeniedHandler accessDeniedHandler;
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final com.petshop.repository.UserRepository userRepository;
 
     /**
      * Password encoder bean utilizing BCrypt hashing (compatible with $2a$10$ seed hashes).
@@ -67,11 +64,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            .addFilterBefore(new com.petshop.config.security.AccountStateFilter(userRepository),
+                    org.springframework.security.web.access.intercept.AuthorizationFilter.class)
             // 1. Authentication Provider Registration
             .authenticationProvider(authenticationProvider())
 
-            // 2. CSRF Configuration: Disabled for stateless JWT authentication to prevent 403 errors on form submissions
-            .csrf(csrf -> csrf.disable())
+            // 2. CSRF Configuration
+            .csrf(csrf -> csrf
+                // Exempt server-to-server gateway webhooks from CSRF checks
+                .ignoringRequestMatchers("/payment/vnpay-ipn")
+            )
 
             // 3. Authorization Request Matchers
             .authorizeHttpRequests(auth -> auth
@@ -118,21 +120,14 @@ public class SecurityConfig {
                     "/checkout/vnpay-callback"
                 ).permitAll()
 
-                // Profile & account operations (Accessible to all authenticated users)
-                .requestMatchers(
-                    "/customer/profile",
-                    "/customer/avatar",
-                    "/customer/change-password"
-                ).authenticated()
-
-                // Customer shopping routes
+                // Customer-exclusive routes
                 .requestMatchers(
                     "/customer/**",
                     "/cart/**",
                     "/checkout/**",
                     "/wishlist/**",
                     "/orders/**"
-                ).hasAnyRole("CUSTOMER", "STAFF", "ADMIN")
+                ).hasRole("CUSTOMER")
 
                 // Staff operations (Accessible by STAFF or ADMIN)
                 .requestMatchers(
@@ -148,26 +143,31 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
 
-            // 4. Logout: JWT is stored in an HttpOnly cookie, so just delete it
-            .logout(logout -> logout
-                .logoutUrl("/logout")
-                .logoutSuccessUrl("/login?logout=true")
-                .clearAuthentication(true)
-                .deleteCookies(JwtAuthenticationFilter.COOKIE_NAME)
+            // 4. Form-Based Login Configuration
+            .formLogin(form -> form
+                .loginPage("/login")
+                .loginProcessingUrl("/login")
+                .usernameParameter("username") // Supports Email or Phone
+                .passwordParameter("password")
+                .successHandler(authenticationSuccessHandler)
+                .failureUrl("/login?error=true")
                 .permitAll()
             )
 
-            // 5. Stateless: identity comes from the JWT cookie on every request
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // 5. Logout Handler Configuration
+            .logout(logout -> logout
+                .logoutUrl("/logout")
+                .logoutSuccessUrl("/login?logout=true")
+                .invalidateHttpSession(true)
+                .clearAuthentication(true)
+                .deleteCookies("JSESSIONID")
+                .permitAll()
+            )
 
             // 6. Exception & Access Denied Handling
             .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
                 .accessDeniedHandler(accessDeniedHandler)
-            )
-
-            // 7. JWT cookie filter
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            );
 
         return http.build();
     }

@@ -55,7 +55,7 @@
                 <div th:if="${addresses != null and !addresses.empty}">
                     <div th:each="addr : ${addresses}" class="card border-0 shadow-sm address-item-card p-4 mb-3"
                          th:classappend="${addr.isDefault ? ' is-default' : ''}">
-                        
+
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="fw-bold text-dark fs-6" th:text="${addr.recipientName}">Nguyễn Văn Khách</span>

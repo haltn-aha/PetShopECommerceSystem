@@ -12,48 +12,21 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 /**
- * Generates and validates HS256-signed JWT access tokens.
+ * Bao's signed email-registration tokens. Login remains session-based.
  */
 @Service
 public class JwtService {
 
     private final SecretKey key;
-    private final long expirationMs;
-
-    public JwtService(@Value("${app.jwt.secret}") String secret,
-                      @Value("${app.jwt.expiration-ms}") long expirationMs) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.expirationMs = expirationMs;
-    }
-
-    public long getExpirationMs() {
-        return expirationMs;
-    }
-
-    public String generateToken(CustomUserDetails user) {
-        Date now = new Date();
-        return Jwts.builder()
-                .subject(user.getUsername())
-                .claim("uid", user.getId())
-                .claim("role", user.getRoleCode())
-                .issuedAt(now)
-                .expiration(new Date(now.getTime() + expirationMs))
-                .signWith(key)
-                .compact();
+    public JwtService(@Value("${app.jwt.secret:}") String secret) {
+        // With no local key, links remain valid only until this application restarts.
+        this.key = secret == null || secret.isBlank() ? Jwts.SIG.HS256.key().build()
+                : Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     /** Returns claims if the token is valid, otherwise throws JwtException. */
     public Claims parse(String token) throws JwtException {
         return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
-    }
-
-    public String extractUsername(String token) {
-        Claims claims = parse(token);
-        // Email-verification tokens must never be usable as login tokens
-        if (claims.get("purpose") != null) {
-            throw new JwtException("Not a login token");
-        }
-        return claims.getSubject();
     }
 
     /** Short-lived signed token carrying pending registration data for email confirmation. */

@@ -4,36 +4,44 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 /**
- * Sends account-related emails. If no SMTP account is configured,
- * the link is logged instead so development still works.
+ * HTML email transport adapted from Bao's ft/auth commit 4233a19.
+ * Missing configuration and SMTP failures are reported to the caller.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final ObjectProvider<JavaMailSender> mailSenders;
 
-    @Value("${app.mail-from:}")
+    @Value("${petshop.mail-from:${app.mail-from:}}")
     private String from;
 
-    public void sendRegistrationConfirmation(String to, String fullName, String link) {
-        if (from == null || from.isBlank()) {
-            log.warn("MAIL_USERNAME not configured. Verification link for {}: {}", to, link);
-            return;
+    @Value("${spring.mail.host:}")
+    private String host;
+
+    public void requireConfigured() {
+        if (host == null || host.isBlank() || from == null || from.isBlank() || mailSenders.getIfAvailable() == null) {
+            throw new IllegalStateException("Chưa cấu hình SMTP/email gửi. Vui lòng cấu hình mail trước khi cấp tài khoản hoặc gửi liên kết.");
         }
+    }
+
+    public void sendRegistrationConfirmation(String to, String fullName, String link) {
+        requireConfigured();
         try {
+            JavaMailSender mailSender = mailSenders.getObject();
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
             helper.setSubject("PetShop - Xác nhận đăng ký tài khoản");
-            helper.setText(buildHtml(escape(fullName), link), true);
+            helper.setText(buildHtml(escape(fullName), org.springframework.web.util.HtmlUtils.htmlEscape(link)), true);
             mailSender.send(message);
         } catch (Exception e) {
             log.error("Failed to send confirmation email to {}", to, e);
@@ -42,21 +50,42 @@ public class EmailService {
     }
 
     public void sendPasswordResetEmail(String to, String fullName, String link) {
-        if (from == null || from.isBlank()) {
-            log.warn("MAIL_USERNAME not configured. Password reset link for {}: {}", to, link);
-            return;
-        }
+        requireConfigured();
         try {
+            JavaMailSender mailSender = mailSenders.getObject();
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
             helper.setSubject("PetShop - Đặt lại mật khẩu tài khoản");
-            helper.setText(buildResetPasswordHtml(escape(fullName), link), true);
+            helper.setText(buildResetPasswordHtml(escape(fullName), org.springframework.web.util.HtmlUtils.htmlEscape(link)), true);
             mailSender.send(message);
         } catch (Exception e) {
             log.error("Failed to send password reset email to {}", to, e);
             throw new IllegalStateException("Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.");
+        }
+    }
+
+    public void sendStaffInvitation(String to, String fullName, String link) {
+        requireConfigured();
+        try {
+            JavaMailSender mailSender = mailSenders.getObject();
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(to);
+            helper.setSubject("PetShop - Mời nhận tài khoản nhân viên");
+            String safeLink = org.springframework.web.util.HtmlUtils.htmlEscape(link);
+            helper.setText("<div style=\"font-family:Arial,sans-serif;max-width:560px;margin:auto;line-height:1.6\">"
+                    + "<h2>Nhận tài khoản nhân viên PetShop</h2><p>Xin chào " + escape(fullName) + ",</p>"
+                    + "<p>Quản trị viên đã cấp cho bạn tài khoản STAFF với email <b>" + escape(to) + "</b>.</p>"
+                    + "<p>Hãy tự đặt mật khẩu bằng liên kết dùng một lần sau. Liên kết có hiệu lực 30 phút.</p>"
+                    + "<p><a href=\"" + safeLink + "\">Đặt mật khẩu và nhận tài khoản</a></p>"
+                    + "<p>Sau khi đặt mật khẩu, đăng nhập bằng email này và mật khẩu bạn vừa chọn.</p>"
+                    + "<p>Nếu liên kết hết hạn hoặc chưa nhận được thư, liên hệ Admin để gửi lại lời mời.</p></div>", true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new IllegalStateException("Không thể gửi email nhận tài khoản. Vui lòng kiểm tra SMTP và thử lại.", e);
         }
     }
 

@@ -20,11 +20,22 @@ server:
 spring:
   application:
     name: petshop-app
+  mail:
+    host: ${SMTP_HOST:${MAIL_HOST:}}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:${MAIL_USERNAME:}}
+    password: ${SMTP_PASSWORD:${MAIL_PASSWORD:}}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   
   profiles:
     active: dev
     group:
-      dev: dev
+      dev: local
 
   # ===================================================================
   # 1. Datasource Configuration (Microsoft SQL Server 2019+)
@@ -50,19 +61,25 @@ spring:
   # 2. JPA & Hibernate ORM Configuration
   # ===================================================================
   jpa:
+    database-platform: org.hibernate.dialect.SQLServerDialect
     open-in-view: false
-    show-sql: false
+    show-sql: true
+    hibernate:
+      # Strictly validate or none: Database schema is authoritatively created and maintained
+      # by PetShop_Database_Final.sql (preserves computed columns, filtered indexes, CHECK rules)
+      ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
     properties:
       hibernate:
-        physical_naming_strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        default_schema: dbo
+        format_sql: true
+        highlight_sql: true
         jdbc:
           batch_size: 25
           order_inserts: true
           order_updates: true
-    hibernate:
-      # Strictly validate or none: Database schema is authoritatively created and maintained
-      # by PetShop_Database_Final.sql (preserves computed columns, filtered indexes, CHECK rules)
-      ddl-auto: validate
 
   # ===================================================================
   # 3. Thymeleaf Template Engine Configuration
@@ -91,19 +108,6 @@ spring:
         cache: false
 
   # ===================================================================
-  # Mail (Gmail SMTP: use an App Password, set MAIL_USERNAME / MAIL_PASSWORD env vars)
-  # If MAIL_USERNAME is empty, the verification link is only printed to the log.
-  # ===================================================================
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-
-  # ===================================================================
   # 5. File Upload Configuration (Product Images, User Avatars)
   # ===================================================================
   servlet:
@@ -113,25 +117,26 @@ spring:
       max-request-size: 15MB
 
 # =====================================================================
-# JWT Configuration (secret must be >= 32 chars; override via JWT_SECRET env)
-# =====================================================================
-app:
-  base-url: ${APP_BASE_URL:http://localhost:8080}
-  mail-from: ${MAIL_USERNAME:}
-  jwt:
-    secret: ${JWT_SECRET:petshop-swp391-dev-secret-key-change-me-in-production-0123456789}
-    expiration-ms: 86400000
-
-# =====================================================================
 # 6. Logging Subsystem Configuration
 # =====================================================================
 logging:
   level:
     root: INFO
-    com.petshop: INFO
+    com.petshop: DEBUG
     org.springframework.web: INFO
     org.springframework.security: INFO
-    org.hibernate.SQL: WARN
-    org.hibernate.type.descriptor.sql: WARN
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
   pattern:
     console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+
+petshop:
+  browser:
+    auto-open: ${AUTO_OPEN_BROWSER:true}
+  shipping-fee: ${SHIPPING_FEE:30000}
+  public-base-url: ${PUBLIC_BASE_URL:${APP_BASE_URL:http://localhost:8080}}
+  mail-from: ${SMTP_FROM:${SMTP_USERNAME:${MAIL_USERNAME:}}}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}

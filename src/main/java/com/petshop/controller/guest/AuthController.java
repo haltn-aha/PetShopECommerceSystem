@@ -1,19 +1,8 @@
 package com.petshop.controller.guest;
 
-import com.petshop.config.security.CustomUserDetails;
-import com.petshop.config.security.JwtAuthenticationFilter;
-import com.petshop.config.security.JwtService;
-import com.petshop.dto.auth.LoginRequestDto;
 import com.petshop.dto.auth.RegisterRequestDto;
+import com.petshop.dto.auth.LoginRequestDto;
 import com.petshop.service.AuthService;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,47 +18,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class AuthController {
 
     private final AuthService authService;
-    private final AuthenticationManager authenticationManager;
-    private final JwtService jwtService;
 
     @GetMapping("/login")
     public String loginForm(Model model) {
-        if (!model.containsAttribute("loginForm")) {
-            model.addAttribute("loginForm", new LoginRequestDto());
-        }
-        return "guest/login";
-    }
-
-    @PostMapping("/login")
-    public String processLogin(@Valid @ModelAttribute("loginForm") LoginRequestDto loginForm,
-                               BindingResult bindingResult,
-                               HttpServletResponse response,
-                               Model model) {
-        if (bindingResult.hasErrors()) {
-            return "guest/login";
-        }
-        try {
-            Authentication auth = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginForm.getUsername().trim(), loginForm.getPassword()));
-            CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();
-
-            Cookie cookie = new Cookie(JwtAuthenticationFilter.COOKIE_NAME, jwtService.generateToken(user));
-            cookie.setHttpOnly(true);
-            cookie.setPath("/");
-            cookie.setMaxAge((int) (jwtService.getExpirationMs() / 1000));
-            response.addCookie(cookie);
-
-            log.info("User {} logged in with role {}", user.getUsername(), user.getRoleCode());
-            switch (user.getRoleCode()) {
-                case "ADMIN": return "redirect:/admin/dashboard";
-                case "STAFF": return "redirect:/staff/dashboard";
-                default: return "redirect:/";
-            }
-        } catch (LockedException | DisabledException e) {
-            model.addAttribute("errorMessage", "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
-        } catch (AuthenticationException e) {
-            model.addAttribute("errorMessage", "Email, số điện thoại hoặc mật khẩu không chính xác!");
-        }
+        if (!model.containsAttribute("loginForm")) model.addAttribute("loginForm", new LoginRequestDto());
         return "guest/login";
     }
 
@@ -92,9 +44,7 @@ public class AuthController {
 
         try {
             authService.startRegistration(registerForm);
-            redirectAttributes.addFlashAttribute("successMessage",
-                    "Đã gửi email xác nhận tới " + registerForm.getEmail().trim()
-                    + ". Vui lòng kiểm tra hộp thư (kể cả Spam) và bấm vào liên kết để kích hoạt tài khoản.");
+            redirectAttributes.addFlashAttribute("successMessage", "Đã gửi email xác nhận đăng ký. Vui lòng kiểm tra hộp thư (kể cả Spam) và mở liên kết để kích hoạt tài khoản.");
             return "redirect:/login";
         } catch (IllegalArgumentException | IllegalStateException e) {
             model.addAttribute("errorMessage", e.getMessage());
@@ -122,9 +72,9 @@ public class AuthController {
     public String sendResetToken(@RequestParam String email, RedirectAttributes redirectAttributes) {
         try {
             authService.initiatePasswordReset(email);
-            redirectAttributes.addFlashAttribute("infoMessage", "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi tới " + email + ". Vui lòng kiểm tra hộp thư (kể cả Spam).");
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            redirectAttributes.addFlashAttribute("infoMessage", "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đi.");
+        } catch (IllegalStateException | org.springframework.mail.MailException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Gửi email chưa khả dụng. Vui lòng liên hệ quản trị viên để đặt lại mật khẩu.");
         }
         return "redirect:/forgot-password";
     }
@@ -133,7 +83,7 @@ public class AuthController {
     public String resetPasswordForm(@RequestParam String token, Model model) {
         if (!authService.verifyPasswordResetToken(token)) {
             model.addAttribute("errorMessage", "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
-            return "guest/login";
+            return "guest/forgot-password";
         }
         model.addAttribute("token", token);
         return "guest/reset-password";
@@ -145,12 +95,6 @@ public class AuthController {
                                        @RequestParam String confirmPassword,
                                        RedirectAttributes redirectAttributes,
                                        Model model) {
-        if (newPassword == null || newPassword.length() < 6) {
-            model.addAttribute("token", token);
-            model.addAttribute("errorMessage", "Mật khẩu mới phải có tối thiểu 6 ký tự.");
-            return "guest/reset-password";
-        }
-
         if (!newPassword.equals(confirmPassword)) {
             model.addAttribute("token", token);
             model.addAttribute("errorMessage", "Mật khẩu xác nhận không khớp.");

@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class CategoryManageController {
 
     private final CategoryRepository categoryRepository;
+    private final com.petshop.service.CategoryManageService categoryManageService;
 
     @GetMapping
     public String listCategories(Model model) {
@@ -29,11 +30,12 @@ public class CategoryManageController {
     public String createCategory(@ModelAttribute Category category,
                                  @RequestParam(required = false) Integer parentId,
                                  RedirectAttributes redirectAttributes) {
-        if (parentId != null) {
-            categoryRepository.findById(parentId).ifPresent(category::setParentCategory);
+        try {
+            categoryManageService.create(category, parentId);
+            redirectAttributes.addFlashAttribute("successMessage", "Thêm danh mục mới thành công!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
-        categoryRepository.save(category);
-        redirectAttributes.addFlashAttribute("successMessage", "Thêm danh mục mới thành công!");
         return "redirect:/admin/categories";
     }
 

@@ -11,11 +11,6 @@ import com.petshop.repository.RoleRepository;
 import com.petshop.repository.UserRepository;
 import com.petshop.service.AuthService;
 import lombok.RequiredArgsConstructor;
-import com.petshop.config.security.JwtService;
-import com.petshop.service.EmailService;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -37,75 +32,56 @@ public class AuthServiceImpl implements AuthService {
     private final CartRepository cartRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-    private final EmailService emailService;
-
-    @Value("${app.base-url}")
+    private final com.petshop.service.PasswordResetMailer resetMailer;
+    private final com.petshop.service.AccountAccessService accountAccessService;
+    private final jakarta.persistence.EntityManager entityManager;
+    private final com.petshop.config.security.JwtService registrationTokens;
+    private final com.petshop.service.EmailService emailService;
+    private final jakarta.validation.Validator validator;
+    @org.springframework.beans.factory.annotation.Value("${petshop.public-base-url:http://localhost:8080}")
     private String baseUrl;
-
-    private static final long REGISTRATION_TTL_MS = 24L * 60 * 60 * 1000;
 
     @Override
     @Transactional(readOnly = true)
     public void startRegistration(RegisterRequestDto request) {
-        String email = request.getEmail().trim().toLowerCase();
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        if (!request.getPassword().equals(request.getConfirmPassword())
+                || request.getPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Mật khẩu xác nhận không khớp hoặc vượt quá 72 byte.");
+        }
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
         String phone = request.getPhone().trim();
-
-        if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email đã được sử dụng bởi một tài khoản khác.");
+        if (userRepository.existsByEmail(email) || userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Email hoặc số điện thoại đã được đăng ký.");
         }
-        if (userRepository.existsByPhone(phone)) {
-            throw new IllegalArgumentException("Số điện thoại đã được đăng ký trong hệ thống.");
-        }
-        if (!request.getPassword().equals(request.getConfirmPassword())) {
-            throw new IllegalArgumentException("Mật khẩu xác nhận không khớp.");
-        }
-
-        String token = jwtService.generateRegistrationToken(request.getFullName().trim(), email, phone,
-                passwordEncoder.encode(request.getPassword()), REGISTRATION_TTL_MS);
-        String link = baseUrl + "/verify-email?token=" + token;
+        emailService.requireConfigured();
+        String token = registrationTokens.generateRegistrationToken(request.getFullName().trim(), email, phone,
+                passwordEncoder.encode(request.getPassword()), 24L * 60 * 60 * 1000);
+        String link = org.springframework.web.util.UriComponentsBuilder.fromHttpUrl(baseUrl)
+                .path("/verify-email").queryParam("token", token).build().encode().toUriString();
         emailService.sendRegistrationConfirmation(email, request.getFullName().trim(), link);
-        log.info("Sent registration confirmation email to {}", email);
     }
 
     @Override
     @Transactional
     public User confirmRegistration(String token) {
-        Claims claims;
+        io.jsonwebtoken.Claims claims;
         try {
-            claims = jwtService.parseRegistrationToken(token);
-        } catch (JwtException | IllegalArgumentException e) {
+            claims = registrationTokens.parseRegistrationToken(token);
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
             throw new IllegalArgumentException("Liên kết xác nhận không hợp lệ hoặc đã hết hạn. Vui lòng đăng ký lại.");
         }
-        String email = claims.getSubject();
-        String phone = claims.get("phone", String.class);
-
+        String email = claims.getSubject(), phone = claims.get("phone", String.class);
         if (userRepository.existsByEmail(email) || userRepository.existsByPhone(phone)) {
-            throw new IllegalArgumentException("Tài khoản đã được kích hoạt trước đó. Vui lòng đăng nhập.");
+            throw new IllegalArgumentException("Tài khoản đã được kích hoạt hoặc email/SĐT đã được sử dụng. Vui lòng đăng nhập.");
         }
-        return createCustomer(claims.get("fullName", String.class), email, phone, claims.get("pwd", String.class));
-    }
-
-    private User createCustomer(String fullName, String email, String phone, String passwordHash) {
-        Role customerRole = roleRepository.findByCode("CUSTOMER")
-                .orElseGet(() -> roleRepository.save(Role.builder()
-                        .code("CUSTOMER")
-                        .name("Khách hàng")
-                        .createdAt(LocalDateTime.now())
-                        .build()));
-
-        User savedUser = userRepository.save(User.builder()
-                .fullName(fullName)
-                .email(email)
-                .phone(phone)
-                .passwordHash(passwordHash)
-                .role(customerRole)
-                .status("ACTIVE")
-                .build());
-
-        cartRepository.save(Cart.builder().user(savedUser).build());
-        log.info("Created customer account with ID: {}", savedUser.getId());
-        return savedUser;
+        Role role = roleRepository.findByCode("CUSTOMER")
+                .orElseThrow(() -> new IllegalStateException("Thiếu vai trò CUSTOMER."));
+        User customer = userRepository.saveAndFlush(User.builder().role(role).fullName(claims.get("fullName", String.class))
+                .email(email).phone(phone).passwordHash(claims.get("pwd", String.class)).status("ACTIVE").build());
+        cartRepository.saveAndFlush(Cart.builder().user(customer).build());
+        return customer;
     }
 
     @Override
@@ -121,7 +97,9 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Số điện thoại đã được đăng ký trong hệ thống.");
         }
 
-        if (!request.getPassword().equals(request.getConfirmPassword())) {
+        if (request.getPassword() == null || request.getPassword().isBlank() || request.getPassword().length() < 6
+                || request.getPassword().getBytes(StandardCharsets.UTF_8).length > 72
+                || !request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp.");
         }
 
@@ -156,49 +134,49 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void initiatePasswordReset(String email) {
+        resetMailer.requireConfigured();
         log.info("Initiating password reset for email: {}", email);
-        userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(user -> {
-            String rawToken = UUID.randomUUID().toString();
-            String tokenHash = hashToken(rawToken);
-
-            PasswordResetToken resetToken = PasswordResetToken.builder()
-                    .user(user)
-                    .tokenHash(tokenHash)
-                    .expiresAt(LocalDateTime.now().plusMinutes(30))
-                    .build();
-            tokenRepository.save(resetToken);
-            String link = baseUrl + "/reset-password?token=" + rawToken;
-            emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), link);
-            log.info("Sent password reset email for user ID {}. Link: {}", user.getId(), link);
+        userRepository.findByEmail(email.trim().toLowerCase()).filter(user -> "ACTIVE".equals(user.getStatus())).ifPresent(user -> {
+                accountAccessService.sendLink(user.getId(), false);
+            log.info("Sent password reset instructions for user ID {}", user.getId());
         });
     }
 
     @Override
     @Transactional(readOnly = true)
     public boolean verifyPasswordResetToken(String token) {
-        String tokenHash = hashToken(token);
-        return tokenRepository.findByTokenHash(tokenHash)
-                .filter(t -> t.getUsedAt() == null && t.getExpiresAt().isAfter(LocalDateTime.now()))
-                .isPresent();
+        return token != null && !token.isBlank() && tokenRepository.isUsable(hashToken(token), LocalDateTime.now());
     }
 
     @Override
     @Transactional
     public void resetPasswordWithToken(String token, String newPassword) {
+        if (newPassword == null || newPassword.isBlank() || newPassword.length() < 6
+                || newPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Mật khẩu tối thiểu 6 ký tự, tối đa 72 byte UTF-8.");
+        }
+        if (token == null || token.isBlank()) throw new IllegalArgumentException("Liên kết không hợp lệ.");
         String tokenHash = hashToken(token);
-        PasswordResetToken resetToken = tokenRepository.findByTokenHash(tokenHash)
+        PasswordResetToken candidate = tokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new IllegalArgumentException("Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
+        User user = userRepository.findByIdForUpdate(candidate.getUser().getId()).orElseThrow();
+        entityManager.refresh(user, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        PasswordResetToken resetToken = tokenRepository.findByTokenHashForUpdate(tokenHash)
+                .orElseThrow(() -> new IllegalArgumentException("Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
+        entityManager.refresh(resetToken, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
 
-        if (resetToken.getUsedAt() != null || resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (resetToken.getUsedAt() != null || !resetToken.getExpiresAt().isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("Token đặt lại mật khẩu đã hết hạn hoặc đã được sử dụng.");
         }
 
-        User user = resetToken.getUser();
+        if (!"ACTIVE".equals(user.getStatus())) throw new IllegalArgumentException("Tài khoản đang bị khóa. Vui lòng liên hệ Admin.");
+        user.setMustChangePassword(false);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
         resetToken.setUsedAt(LocalDateTime.now());
-        tokenRepository.save(resetToken);
+        tokenRepository.saveAndFlush(resetToken);
+        tokenRepository.revokeUnusedForUser(user.getId(), LocalDateTime.now());
         log.info("Password successfully reset for user ID: {}", user.getId());
     }
 

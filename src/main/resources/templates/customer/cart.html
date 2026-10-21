@@ -159,7 +159,7 @@
                 <i class="bi bi-bag-plus me-1"></i> Tiếp Tục Mua Sắm
             </a>
         </div>
-        
+
         <!-- Trường hợp Giỏ hàng có sản phẩm -->
         <div th:if="${cart != null and !cart.items.empty}" class="row g-4">
             <div class="col-lg-8">
@@ -211,12 +211,12 @@
                                                         title="Giảm 1">
                                                     <i class="bi bi-dash fw-bold"></i>
                                                 </button>
-                                                
+
                                                 <!-- Số lượng hiển thị chính giữa -->
                                                 <input type="number" name="quantity" class="qty-input"
                                                        th:value="${item.quantity}" min="1" th:max="${item.maxStock}"
                                                        onchange="onQtyInputChange(this)" title="Số lượng">
-                                                
+
                                                 <!-- Nút Tăng (+) -->
                                                 <button type="button" class="qty-btn btn-qty-inc"
                                                         onclick="changeCartQty(this, 1)"
@@ -265,12 +265,12 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Cột phải: Tóm tắt đơn hàng -->
             <div class="col-lg-4">
                 <div class="card border-0 shadow-sm cart-summary-card p-4 sticky-top" style="top: 24px;">
                     <h5 class="fw-bold mb-3 text-dark pb-2 border-bottom">Tóm Tắt Đơn Hàng</h5>
-                    
+
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Tổng tiền hàng:</span>
                         <span class="fw-bold text-dark cart-subtotal-val" th:text="${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT') + ' đ'}">0 đ</span>
@@ -283,7 +283,7 @@
 
                     <div class="alert alert-info py-2 px-3 small rounded-3 mb-3 d-flex align-items-center gap-2">
                         <i class="bi bi-shield-check text-pet-primary fs-5"></i>
-                        <span>Miễn phí vận chuyển cho đơn hàng từ <strong>300.000 đ</strong> trở lên!</span>
+                        <span>Phí vận chuyển cố định <strong>30.000 đ</strong> mỗi đơn hàng.</span>
                     </div>
 
                     <hr class="my-2">
@@ -291,7 +291,7 @@
                     <div class="d-flex justify-content-between mb-4 align-items-center">
                         <span class="fw-bold fs-6">Tổng tạm tính:</span>
                         <span class="fw-bold text-danger fs-5 cart-total-val"
-                              th:text="${#numbers.formatDecimal(cart.subtotal != null ? cart.subtotal.add(new java.math.BigDecimal(30000)) : 30000, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                              th:text="${#numbers.formatDecimal(cart.subtotal != null ? cart.subtotal + 30000 : 30000, 0, 'COMMA', 0, 'POINT') + ' đ'}">
                             0 đ
                         </span>
                     </div>
@@ -391,7 +391,7 @@
             let currentVal = parseInt(input.value) || 1;
             let minVal = parseInt(input.min) || 1;
             let maxVal = input.max ? parseInt(input.max) : 999;
-            
+
             let newVal = currentVal + delta;
             if (newVal < minVal) {
                 if (confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?')) {

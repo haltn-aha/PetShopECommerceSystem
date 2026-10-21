@@ -13,9 +13,11 @@ import java.util.Optional;
 @Repository
 public interface StockImportRepository extends JpaRepository<StockImport, Long> {
     Optional<StockImport> findByImportCode(String importCode);
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"createdBy"})
     Page<StockImport> findAllByOrderByImportedAtDesc(Pageable pageable);
 
     @Query("SELECT si FROM StockImport si " +
+           "LEFT JOIN FETCH si.createdBy " +
            "LEFT JOIN FETCH si.items i " +
            "LEFT JOIN FETCH i.variant v " +
            "LEFT JOIN FETCH v.product " +

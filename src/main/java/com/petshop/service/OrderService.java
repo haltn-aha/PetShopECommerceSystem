@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface OrderService {
+    com.petshop.entity.Order getOrderByCodeForCustomer(String code, Long customerId);
     Order checkoutOrder(Long customerId, CheckoutSubmitDto request);
 
     Page<Order> getCustomerOrders(Long customerId, OrderStatus status, Pageable pageable);

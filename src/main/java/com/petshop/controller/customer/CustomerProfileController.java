@@ -35,7 +35,6 @@ public class CustomerProfileController {
     private final OrderService orderService;
     private final CartService cartService;
     private final OrderRepository orderRepository;
-    private final com.petshop.config.ProfileDemoDataInitializer demoDataInitializer;
 
     @GetMapping("/profile")
     public String viewProfile(@AuthenticationPrincipal CustomUserDetails userDetails,
@@ -44,11 +43,6 @@ public class CustomerProfileController {
         User user = userService.findById(userDetails.getId());
         model.addAttribute("user", user);
         model.addAttribute("activeTab", activeTab);
-
-        // Tự động đảm bảo có dữ liệu mẫu nếu người dùng (VD: giabaonek2004@gmail.com) chưa có đơn hàng
-        if (orderRepository.countByCustomerId(userDetails.getId()) == 0) {
-            demoDataInitializer.seedForUser(user);
-        }
 
         // 1. Sổ địa chỉ
         List<UserAddress> addresses = userService.getCustomerAddresses(userDetails.getId());

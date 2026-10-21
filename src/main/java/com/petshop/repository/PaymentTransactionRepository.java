@@ -13,6 +13,9 @@ import java.util.Optional;
 @Repository
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, Long> {
     Optional<PaymentTransaction> findByTransactionCode(String transactionCode);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PaymentTransaction p WHERE p.id = :id")
+    Optional<PaymentTransaction> findByIdForUpdate(@Param("id") Long id);
     Optional<PaymentTransaction> findByProviderOrderReference(String providerOrderReference);
     List<PaymentTransaction> findByOrderIdOrderByCreatedAtDesc(Long orderId);
 

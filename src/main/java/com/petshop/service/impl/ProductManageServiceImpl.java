@@ -56,6 +56,7 @@ public class ProductManageServiceImpl implements ProductManageService {
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại: " + staffId));
 
+        product.setSlug(updateData.getSlug());
         product.setName(updateData.getName());
         product.setCategory(updateData.getCategory());
         product.setBrand(updateData.getBrand());
@@ -85,6 +86,7 @@ public class ProductManageServiceImpl implements ProductManageService {
         if (variantRepository.existsBySkuCode(variant.getSkuCode())) {
             throw new IllegalArgumentException("Mã SKU đã tồn tại: " + variant.getSkuCode());
         }
+        variant.setStockQuantity(0);
         variant.setProduct(product);
         return variantRepository.save(variant);
     }
@@ -92,7 +94,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional
     public ProductVariant updateVariant(Long variantId, ProductVariant updateData) {
-        ProductVariant variant = variantRepository.findById(variantId)
+        ProductVariant variant = variantRepository.findByIdForUpdate(variantId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy biến thể: " + variantId));
 
         variant.setVariantName(updateData.getVariantName());

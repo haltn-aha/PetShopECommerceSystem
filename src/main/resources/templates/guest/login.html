@@ -18,6 +18,12 @@
                     </div>
 
                     <!-- Spring Security Error Alert -->
+                    <div th:if="${param.error}" class="alert alert-danger py-2 small" role="alert">
+                        Email, số điện thoại hoặc mật khẩu không chính xác, hoặc tài khoản đã bị khóa.
+                    </div>
+                    <div th:if="${param.expired}" class="alert alert-warning py-2 small" role="alert">
+                        Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.
+                    </div>
                     <div th:if="${errorMessage}" class="alert alert-danger py-2 small" role="alert">
                         <i class="bi bi-exclamation-circle-fill me-1"></i>
                         <span th:text="${errorMessage}"></span>
