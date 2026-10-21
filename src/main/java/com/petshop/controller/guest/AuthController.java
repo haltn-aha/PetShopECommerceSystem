@@ -1,6 +1,7 @@
 package com.petshop.controller.guest;
 
 import com.petshop.dto.auth.RegisterRequestDto;
+import com.petshop.dto.auth.LoginRequestDto;
 import com.petshop.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,8 @@ public class AuthController {
     private final AuthService authService;
 
     @GetMapping("/login")
-    public String loginForm() {
+    public String loginForm(Model model) {
+        if (!model.containsAttribute("loginForm")) model.addAttribute("loginForm", new LoginRequestDto());
         return "guest/login";
     }
 
@@ -41,13 +43,24 @@ public class AuthController {
         }
 
         try {
-            authService.registerCustomer(registerForm);
-            redirectAttributes.addFlashAttribute("successMessage", "Đăng ký tài khoản thành công! Vui lòng đăng nhập.");
+            authService.startRegistration(registerForm);
+            redirectAttributes.addFlashAttribute("successMessage", "Đã gửi email xác nhận đăng ký. Vui lòng kiểm tra hộp thư (kể cả Spam) và mở liên kết để kích hoạt tài khoản.");
             return "redirect:/login";
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             model.addAttribute("errorMessage", e.getMessage());
             return "guest/register";
         }
+    }
+
+    @GetMapping("/verify-email")
+    public String verifyEmail(@RequestParam String token, RedirectAttributes redirectAttributes) {
+        try {
+            authService.confirmRegistration(token);
+            redirectAttributes.addFlashAttribute("successMessage", "Kích hoạt tài khoản thành công! Vui lòng đăng nhập.");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/login";
     }
 
     @GetMapping("/forgot-password")
@@ -70,7 +83,7 @@ public class AuthController {
     public String resetPasswordForm(@RequestParam String token, Model model) {
         if (!authService.verifyPasswordResetToken(token)) {
             model.addAttribute("errorMessage", "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
-            return "guest/login";
+            return "guest/forgot-password";
         }
         model.addAttribute("token", token);
         return "guest/reset-password";

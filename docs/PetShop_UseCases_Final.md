@@ -75,7 +75,7 @@ TỔNG SỐ USE CASES: 73 (GUEST: 7 | CUSTOMER: 30 | STAFF: 18 | ADMIN: 18)
 | **UC-2.2** | View Product Detail | Guest | Không | `<<extend>>` UC-2 | Mở rộng của UC-2, hiển thị chi tiết sản phẩm gồm thư viện ảnh, mô tả, các biến thể SKU kèm giá bán và tồn kho, cùng các đánh giá đã được kiểm duyệt. | `Products`, `ProductImages`, `ProductVariants`, `Reviews` |
 | **UC-3** | Search Products | Guest | Không | Mở rộng UC-2.1 | Cho phép khách tìm kiếm nhanh sản phẩm bằng từ khóa tên sản phẩm, tên biến thể hoặc thương hiệu trên thanh công cụ tìm kiếm. | `Products`, `Brands`, `Categories` |
 | **UC-4** | View Promotions | Guest | Không | Độc lập | Cho phép khách xem danh sách các mã giảm giá và chiến dịch voucher công khai đang có hiệu lực của cửa hàng. | `Vouchers` |
-| **UC-5** | Register Account | Guest | Không | Độc lập | Cho phép khách vãng lai đăng ký tài khoản thành viên mới với vai trò CUSTOMER bằng họ tên, email/số điện thoại và mật khẩu mã hóa. | `Users`, `Roles`, `Carts` |
+| **UC-5** | Register Account | Guest | Email Service | Độc lập | Khách nhập họ tên, email, SĐT và mật khẩu; hệ thống gửi link xác nhận có hạn 24 giờ. Xác nhận thành công mới tạo tài khoản CUSTOMER, lưu hash BCrypt và giỏ hàng rỗng. Link sai/hết hạn/đã kích hoạt không tạo thêm tài khoản. | `Users`, `Roles`, `Carts` |
 
 ---
 

@@ -18,6 +18,9 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
     Optional<Order> findByOrderCode(String orderCode);
 
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id IN :ids")
+    List<Order> findWithItemsByIdIn(@Param("ids") List<Long> ids);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT o FROM Order o WHERE o.id = :id")
     Optional<Order> findByIdForUpdate(@Param("id") Long id);
@@ -64,6 +67,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     java.math.BigDecimal sumRevenueBetween(@Param("status") OrderStatus status, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     long countByOrderStatus(OrderStatus status);
+
+    long countByCustomerId(Long customerId);
+
+    long countByCustomerIdAndOrderStatus(Long customerId, OrderStatus status);
 
     long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 

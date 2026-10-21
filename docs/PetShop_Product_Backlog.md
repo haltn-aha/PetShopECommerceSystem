@@ -65,12 +65,12 @@ Bảng tổng hợp 26 tính năng của dự án với đầy đủ 6 cột b�
 #### `FEAT-01`: Đăng ký, Đăng nhập & Đăng xuất hệ thống
 - **Phân hệ**: Authentication
 - **User Story**: Là một Khách vãng lai / Người dùng hệ thống, tôi muốn đăng ký tài khoản mới bằng Email/SĐT và đăng nhập vào hệ thống để có thể thực hiện mua hàng hoặc thao tác quản trị theo quyền hạn của mình.
-- **Mô tả nghiệp vụ**: Khách vãng lai điền thông tin đăng ký (Họ tên, Email, Số điện thoại, Mật khẩu băm BCrypt). Khi đăng ký thành công, tự động khởi tạo giỏ hàng rỗng trong `Carts`. Spring Security xử lý Form Login, quản lý Session, phân quyền Role-based (`ROLE_CUSTOMER`, `ROLE_STAFF`, `ROLE_ADMIN`), bảo vệ CSRF và hỗ trợ Đăng xuất an toàn.
+- **Mô tả nghiệp vụ**: Khách vãng lai điền Họ tên, Email, Số điện thoại và Mật khẩu. Hệ thống gửi link xác nhận đăng ký có hạn 24 giờ; chỉ khi xác nhận thành công mới tạo CUSTOMER, lưu hash BCrypt và khởi tạo giỏ hàng rỗng trong `Carts`. Spring Security xử lý Form Login, quản lý Session, phân quyền Role-based (`ROLE_CUSTOMER`, `ROLE_STAFF`, `ROLE_ADMIN`), bảo vệ CSRF và hỗ trợ Đăng xuất an toàn. Token ký chỉ dùng xác nhận đăng ký, không dùng làm cookie đăng nhập.
 - **Use Cases liên quan**: `UC-5` (Register Account), `UC-6` (Logout), `UC-16` (Login).
 - **Mức ưu tiên**: **Must Have** | **Sprint**: **Sprint 1** | **Phụ trách**: **Member 1**
 - **Thực thể CSDL & Thành phần kỹ thuật**: `Roles`, `Users`, `Carts`; `SecurityConfig`, `AuthController`, `auth/login.html`, `auth/register.html`.
 - **Tiêu chí nghiệm thu (Definition of Done - DoD)**:
-  - Đăng ký thành công tạo bản ghi `Users` có trạng thái `ACTIVE`, mật khẩu băm BCrypt độ an toàn chuẩn.
+  - Chưa xác nhận email thì chưa tạo Users/Carts; xác nhận thành công tạo CUSTOMER ACTIVE và giỏ hàng rỗng. SMTP lỗi không tạo tài khoản. Link sai/hết hạn/đã kích hoạt không tạo thêm tài khoản.
   - Chặn đăng ký trùng Email hoặc Số điện thoại (báo lỗi trường tương ứng).
   - Đăng nhập sai quá số lần hoặc tài khoản bị khóa (`LOCKED`) hiển thị thông báo lỗi rõ ràng.
   - Phân quyền điều hướng chính xác sau đăng nhập: Customer về trang chủ, Staff/Admin về trang quản trị tương ứng.

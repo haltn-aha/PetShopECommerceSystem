@@ -17,7 +17,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class CartController {
 
     private final CartService cartService;
-    private final com.petshop.config.ShippingFeeConfig shippingFeeConfig;
 
     @GetMapping
     public String viewCart(@AuthenticationPrincipal CustomUserDetails userDetails,
@@ -26,7 +25,6 @@ public class CartController {
         CartDto cart = cartService.getCartForUser(userDetails.getId());
         session.setAttribute("cartCount", cart.getTotalQuantity());
         model.addAttribute("cart", cart);
-        model.addAttribute("shippingFee", shippingFeeConfig.getShippingFee());
         return "customer/cart";
     }
 
@@ -47,23 +45,31 @@ public class CartController {
     }
 
     @PostMapping("/update")
-    public String updateQuantity(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                 @RequestParam Long itemId,
-                                 @RequestParam int quantity,
-                                 HttpSession session, RedirectAttributes redirect) {
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<?> updateQuantity(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam Long itemId,
+            @RequestParam int quantity,
+            @RequestHeader(value = "X-Requested-With", required = false) String requestedWith,
+            HttpSession session) {
         try {
             CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
             session.setAttribute("cartCount", cart.getTotalQuantity());
-        } catch (IllegalArgumentException e) { redirect.addFlashAttribute("errorMessage", e.getMessage()); }
-        return "redirect:/cart";
-    }
-
-    @PostMapping("/select")
-    public String selectItem(@AuthenticationPrincipal CustomUserDetails principal, @RequestParam Long itemId,
-            @RequestParam(defaultValue="false") boolean selected, RedirectAttributes redirect) {
-        try { cartService.selectItem(principal.getId(),itemId,selected); }
-        catch (IllegalArgumentException e) { redirect.addFlashAttribute("errorMessage",e.getMessage()); }
-        return "redirect:/cart";
+            if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) {
+                return org.springframework.http.ResponseEntity.ok(cart);
+            }
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SEE_OTHER)
+                    .header(org.springframework.http.HttpHeaders.LOCATION, "/cart")
+                    .build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) {
+                return org.springframework.http.ResponseEntity.badRequest()
+                        .body(java.util.Map.of("error", e.getMessage()));
+            }
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SEE_OTHER)
+                    .header(org.springframework.http.HttpHeaders.LOCATION, "/cart")
+                    .build();
+        }
     }
 
     @PostMapping("/remove")

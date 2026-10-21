@@ -48,6 +48,8 @@ class RegressionTests {
     @Autowired OrderItemRepository orderItems;
     @Autowired ReviewRepository reviews;
     @Autowired PasswordResetTokenRepository tokens;
+    @Autowired CartRepository cartRepository;
+    @Autowired UserAddressRepository addresses;
     @Autowired UserService userService;
     @Autowired VoucherService voucherService;
     @Autowired OrderService orderService;
@@ -99,6 +101,95 @@ class RegressionTests {
         assertTrue(created.getMustChangePassword());
         verify(emailService).sendStaffInvitation(eq(form.getEmail()), eq("New staff"), contains("/reset-password?token="));
         assertEquals(1, tokens.count());
+    }
+
+    @Test void baoRegistrationRequiresEmailConfirmationThenCreatesCustomerAndCart() throws Exception {
+        mvc.perform(post("/register").with(csrf()).param("fullName","New customer").param("email","new.confirm@regression.test")
+                .param("phone","0901000021").param("password","Customer@123").param("confirmPassword","Customer@123"))
+                .andExpect(redirectedUrl("/login")).andExpect(flash().attributeExists("successMessage"));
+        assertFalse(users.existsByEmail("new.confirm@regression.test"));
+        var link=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendRegistrationConfirmation(eq("new.confirm@regression.test"),eq("New customer"),link.capture());
+        var uri=java.net.URI.create(link.getValue());String token=uri.getQuery().substring(6);
+        assertEquals("/verify-email",uri.getPath());assertFalse(auth.verifyPasswordResetToken(token));
+        mvc.perform(get("/verify-email").param("token",token))
+                .andExpect(redirectedUrl("/login")).andExpect(flash().attributeExists("successMessage"));
+        var created=users.findByEmail("new.confirm@regression.test").orElseThrow();
+        assertEquals("CUSTOMER",created.getRole().getCode());assertTrue(encoder.matches("Customer@123",created.getPasswordHash()));
+        assertTrue(cartRepository.findByUserId(created.getId()).isPresent());
+        mvc.perform(get("/verify-email").param("token",token))
+                .andExpect(redirectedUrl("/login")).andExpect(flash().attributeExists("errorMessage"));
+        mvc.perform(post("/login").with(csrf()).param("username",created.getEmail()).param("password","Customer@123"))
+                .andExpect(redirectedUrl("/"));
+    }
+
+    @Test void registrationRejectsTamperingAndSmtpFailureWithoutCreatingAccounts() throws Exception {
+        mvc.perform(get("/verify-email").param("token","invalid-token"))
+                .andExpect(redirectedUrl("/login")).andExpect(flash().attributeExists("errorMessage"));
+        doThrow(new IllegalStateException("SMTP unavailable")).when(emailService).sendRegistrationConfirmation(anyString(),anyString(),anyString());
+        long before=users.count();
+        mvc.perform(post("/register").with(csrf()).param("fullName","SMTP failure").param("email","mail.failure@regression.test")
+                .param("phone","0901000022").param("password","Customer@123").param("confirmPassword","Customer@123"))
+                .andExpect(status().isOk()).andExpect(view().name("guest/register")).andExpect(model().attributeExists("errorMessage"));
+        assertEquals(before,users.count());
+        mvc.perform(get("/login").param("error","true")).andExpect(status().isOk());
+        mvc.perform(get("/reset-password").param("token","invalid-token")).andExpect(status().isOk());
+    }
+
+    @Test void baoCustomerPagesRenderWithoutInventingDemoOrdersOrAddresses() throws Exception {
+        long beforeOrders=orders.count(),beforeAddresses=addresses.count(),beforeUsers=users.count();
+        for(String path:List.of("/customer/profile","/customer/addresses","/customer/orders","/cart")) {
+            mvc.perform(get(path).with(user(new CustomUserDetails(customer)))).andExpect(status().isOk());
+        }
+        assertEquals(beforeOrders,orders.count());assertEquals(beforeAddresses,addresses.count());assertEquals(beforeUsers,users.count());
+        carts.addItemToCart(customer.getId(),variant.getId(),2);
+        mvc.perform(get("/cart").with(user(new CustomUserDetails(customer)))).andExpect(status().isOk());
+        var order=orderService.checkoutOrder(customer.getId(),checkout());
+        for(String path:List.of("/customer/profile?tab=orders","/customer/orders","/customer/orders/"+order.getId())) {
+            mvc.perform(get(path).with(user(new CustomUserDetails(customer)))).andExpect(status().isOk());
+        }
+    }
+
+    @Test void baoAjaxCartUpdateRetainsCsrfAndOwnershipChecks() throws Exception {
+        var cart=carts.addItemToCart(customer.getId(),variant.getId(),1);Long itemId=cart.getItems().get(0).getId();
+        mvc.perform(post("/cart/update").with(user(new CustomUserDetails(customer))).with(csrf()).header("X-Requested-With","XMLHttpRequest")
+                .param("itemId",itemId.toString()).param("quantity","2"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalQuantity").value(2));
+        mvc.perform(post("/cart/update").with(user(new CustomUserDetails(customer))).header("X-Requested-With","XMLHttpRequest")
+                .param("itemId",itemId.toString()).param("quantity","3"))
+                .andExpect(redirectedUrl("/error/403"));
+        var other=users.save(User.builder().role(customer.getRole()).fullName("Other customer").email("other@regression.test").phone("0901000023")
+                .passwordHash(encoder.encode("Other@123")).build());
+        mvc.perform(post("/cart/update").with(user(new CustomUserDetails(other))).with(csrf()).header("X-Requested-With","XMLHttpRequest")
+                .param("itemId",itemId.toString()).param("quantity","3"))
+                .andExpect(status().isBadRequest());
+        assertEquals(2,carts.getCartForUser(customer.getId()).getTotalQuantity());
+    }
+
+    @Test void customerOrderPageItemsRemainReadableAfterDetachingEntities() {
+        carts.addItemToCart(customer.getId(),variant.getId(),2);
+        var placed=orderService.checkoutOrder(customer.getId(),checkout());
+        em.flush();em.clear();
+        var page=orderService.getCustomerOrders(customer.getId(),null,PageRequest.of(0,1));
+        em.clear();
+        assertEquals(1,page.getTotalElements());assertEquals(placed.getId(),page.getContent().get(0).getId());
+        assertEquals(1,page.getContent().get(0).getItems().size());
+        assertEquals("Dog food",page.getContent().get(0).getItems().get(0).getProductNameSnapshot());
+    }
+
+    @Test void avatarUploadRejectsDisguisedFilesAndStoresValidImage() throws Exception {
+        var bogus=new org.springframework.mock.web.MockMultipartFile("avatarFile","fake.png","image/png","not an image".getBytes());
+        assertThrows(IllegalArgumentException.class,()->userService.updateAvatar(customer.getId(),bogus));
+        assertNull(customer.getAvatarUrl());
+        var image=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var bytes=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(image,"png",bytes);
+        var valid=new org.springframework.mock.web.MockMultipartFile("avatarFile","../../unsafe.html","image/png",bytes.toByteArray());
+        userService.updateAvatar(customer.getId(),valid);
+        var saved=users.findById(customer.getId()).orElseThrow();
+        assertTrue(saved.getAvatarUrl().matches("/uploads/avatars/avatar_[0-9]+_[a-f0-9-]+\\.png"));
+        var file=java.nio.file.Path.of(saved.getAvatarUrl().substring(1));
+        try { assertNotNull(javax.imageio.ImageIO.read(file.toFile())); }
+        finally { java.nio.file.Files.deleteIfExists(file); }
     }
     @Test void voucherDatesMustBeStrictlyIncreasing() {
         var form=voucherForm();form.setEndDate(form.getStartDate());

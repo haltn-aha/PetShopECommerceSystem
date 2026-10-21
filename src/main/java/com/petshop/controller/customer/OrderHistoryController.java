@@ -20,6 +20,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class OrderHistoryController {
 
     private final OrderService orderService;
+    private final com.petshop.repository.OrderRepository orderRepository;
+    private final com.petshop.repository.OrderItemRepository orderItemRepository;
+    private final com.petshop.repository.OrderStatusHistoryRepository statusHistoryRepository;
+    private final com.petshop.repository.PaymentTransactionRepository paymentTransactionRepository;
 
     @GetMapping
     public String listOrders(@AuthenticationPrincipal CustomUserDetails userDetails,
@@ -32,16 +36,32 @@ public class OrderHistoryController {
 
         model.addAttribute("orders", orders);
         model.addAttribute("currentStatus", status);
+        model.addAttribute("totalOrdersCount", orderRepository.countByCustomerId(userDetails.getId()));
+        model.addAttribute("pendingCount", orderRepository.countByCustomerIdAndOrderStatus(userDetails.getId(), OrderStatus.PENDING_CONFIRMATION)
+                + orderRepository.countByCustomerIdAndOrderStatus(userDetails.getId(), OrderStatus.PENDING_PAYMENT));
+        model.addAttribute("shippingCount", orderRepository.countByCustomerIdAndOrderStatus(userDetails.getId(), OrderStatus.SHIPPING)
+                + orderRepository.countByCustomerIdAndOrderStatus(userDetails.getId(), OrderStatus.PREPARING));
+        model.addAttribute("completedCount", orderRepository.countByCustomerIdAndOrderStatus(userDetails.getId(), OrderStatus.COMPLETED));
+        model.addAttribute("cancelledCount", orderRepository.countByCustomerIdAndOrderStatus(userDetails.getId(), OrderStatus.CANCELLED));
         return "customer/order-list";
     }
 
     @GetMapping("/{id}")
     public String orderDetail(@AuthenticationPrincipal CustomUserDetails userDetails,
                               @PathVariable Long id,
-                              Model model) {
-        Order order = orderService.getOrderDetailForCustomer(id, userDetails.getId());
-        model.addAttribute("order", order);
-        return "customer/order-detail";
+                              Model model,
+                              RedirectAttributes redirectAttributes) {
+        try {
+            Order order = orderService.getOrderDetailForCustomer(id, userDetails.getId());
+            model.addAttribute("order", order);
+            model.addAttribute("items", orderItemRepository.findByOrderId(id));
+            model.addAttribute("statusHistories", statusHistoryRepository.findByOrderIdOrderByChangedAtAsc(id));
+            model.addAttribute("paymentTransactions", paymentTransactionRepository.findByOrderIdOrderByCreatedAtDesc(id));
+            return "customer/order-detail";
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/customer/orders";
+        }
     }
 
     @PostMapping("/{id}/cancel")

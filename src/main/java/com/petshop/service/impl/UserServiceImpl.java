@@ -72,6 +72,35 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    public void updateAvatar(Long userId, org.springframework.web.multipart.MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() > 5L * 1024 * 1024) {
+            throw new IllegalArgumentException("Chọn ảnh đại diện tối đa 5 MB.");
+        }
+        String type = file.getContentType();
+        if (type == null || !java.util.Set.of("image/jpeg", "image/png", "image/gif").contains(type)) {
+            throw new IllegalArgumentException("Ảnh đại diện cần có định dạng JPG, PNG hoặc GIF.");
+        }
+        try (var input = file.getInputStream()) {
+            var image = javax.imageio.ImageIO.read(input);
+            if (image == null) throw new IllegalArgumentException("Nội dung tệp không phải hình ảnh hợp lệ.");
+            User user = lockUser(userId);
+            var directory = java.nio.file.Path.of("uploads", "avatars").toAbsolutePath().normalize();
+            java.nio.file.Files.createDirectories(directory);
+            // Re-encode the image; never trust a client-supplied filename or extension.
+            String name = "avatar_" + userId + "_" + java.util.UUID.randomUUID() + ".png";
+            var target = directory.resolve(name);
+            if (!javax.imageio.ImageIO.write(image, "png", target.toFile())) {
+                throw new IllegalStateException("Không thể lưu ảnh đại diện.");
+            }
+            user.setAvatarUrl("/uploads/avatars/" + name);
+            userRepository.save(user);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Không thể lưu ảnh đại diện. Vui lòng thử lại.", e);
+        }
+    }
+
+    @Override
+    @Transactional
     public void changePassword(Long userId, PasswordChangeRequestDto request) {
         User user = lockUser(userId);
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {

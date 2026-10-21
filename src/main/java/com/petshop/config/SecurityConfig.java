@@ -82,6 +82,7 @@ public class SecurityConfig {
                     "/css/**",
                     "/js/**",
                     "/images/**",
+                    "/uploads/**",
                     "/webjars/**",
                     "/static/**",
                     "/favicon.ico"
@@ -108,6 +109,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/login",
                     "/register",
+                    "/verify-email",
                     "/forgot-password",
                     "/reset-password"
                 ).permitAll()

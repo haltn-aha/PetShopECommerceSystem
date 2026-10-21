@@ -125,6 +125,8 @@ Quy trình cấp Staff hiện tại: Admin nhập họ tên/email/SĐT, hệ th�
 
 Trang quản lý tài khoản chia tab theo loại người dùng. Admin chỉ gửi link hỗ trợ mật khẩu cho Staff ACTIVE đã nhận tài khoản; gửi link giữ nguyên đăng nhập đến khi Staff tự xác nhận mật khẩu mới. Staff chờ nhận tài khoản dùng Gửi lại lời mời. Customer/Admin tự dùng Quên mật khẩu trên trang đăng nhập.
 
+Bản gộp ft/auth ngày 21/10 giữ xác nhận đăng ký Customer qua email, hồ sơ/ảnh đại diện, địa chỉ, đơn hàng và giỏ hàng AJAX của Bảo. Đăng nhập dùng session và CSRF; JWT chỉ xác nhận đăng ký. Đã dọn source trùng và bỏ tự tạo dữ liệu demo khi mở hồ sơ. Chi tiết cấu hình, database và kiểm chứng: [docs/AUTH_INTEGRATION_HANDOFF.md](docs/AUTH_INTEGRATION_HANDOFF.md).
+
 Hệ thống đã nạp sẵn 3 tài khoản mặc định đại diện cho 3 Role với mật khẩu đã mã hóa BCrypt (`$2a$10$...`):
 
 | Vai trò / Role | Email đăng nhập | Số điện thoại | Mật khẩu mặc định / Password | Quyền truy cập các tuyến đường / Access Scope |

@@ -61,7 +61,9 @@ Quan hệ FK, UserId và chủ sở hữu đơn/giỏ/địa chỉ/voucher/revie
 
 Repo: https://github.com/vyhncce200061-ops/G03_SWP391. Nguồn EmailService: ft/auth, commit 4233a19d3fdd55fff8bc84dac64235245b8fd4d0.
 
-Tích hợp chọn lọc lớp gửi mail HTML; bổ sung thư mời Staff và đổi xử lý thiếu SMTP thành lỗi, bỏ fallback ghi link vào log. Bản hiện tại giữ đăng nhập/session và token một lần trong bảng đang có. Các phần JWT, ProfileDemoDataInitializer, thay đổi profile/cart của ft/auth không nằm trong lần tích hợp này.
+Bản cập nhật 21/10 đã gộp lịch sử ft/auth tại commit trên vào nhánh tích hợp. Giữ mail HTML, xác nhận đăng ký Customer qua email, hồ sơ/ảnh đại diện, sổ địa chỉ, giao diện đơn hàng và giỏ hàng AJAX của Bảo. Bổ sung thư mời và hỗ trợ mật khẩu Staff, báo lỗi SMTP và không ghi link truy cập vào log. Giữ đăng nhập bằng session và CSRF của bản đã kiểm thử; JWT chỉ dùng xác nhận đăng ký, không dùng làm cookie đăng nhập. Vì vậy khóa tài khoản/đổi mật khẩu vẫn thu hồi phiên như quy định.
+
+Đã bỏ ProfileDemoDataInitializer và lời gọi tự sinh địa chỉ/đơn hàng khi mở hồ sơ; bỏ src/test/main là bản sao source cũ, file IDE test.iml và application-test.yml trùng trong src/main. Giữ các test Maven thật tại src/test/java và cấu hình test tại src/test/resources. Chi tiết giao nhận: [AUTH_INTEGRATION_HANDOFF.md](AUTH_INTEGRATION_HANDOFF.md).
 
 ## 6. Cấu hình và demo
 
@@ -96,4 +98,4 @@ Không thêm migration/cột/bảng trong đợt này. Tận dụng Users.MustCh
 
 Không gửi email đến Staff thật trong kiểm thử tự động. Test SMTP nhận thư chỉ trên localhost và test nghiệp vụ dùng database thử riêng. Cấu hình SMTP thật và kiểm tra Inbox thực tế là bước cần làm trên máy demo.
 
-Kết quả cập nhật chính sách 21/10: 47/47 test Maven, đóng gói JAR thành công; 15/15 kiểm tra SQL Server tập trung vào luồng Staff trên database thử mới, SMTP giả lập. Xác nhận chặn Customer/Admin, Staff chờ/bị khóa; gửi link giữ nguyên mật khẩu/phiên, chỉ xác nhận mật khẩu mới mới thu hồi phiên; SMTP lỗi giữ lại token trước thao tác. Không thay schema hoặc ghi vào PetShopDB thật. Lần tích hợp trước đã có 52/52 kiểm tra SQL Server (38 hồi quy + 14 quy trình Staff); đây là kết quả lịch sử trước khi điều chỉnh chính sách.
+Kết quả bản gộp ft/auth cuối ngày 21/10: 53/53 test Maven và đóng gói JAR thành công; 57/57 kiểm tra SQL Server (38 hồi quy + 19 xác nhận đăng ký/Staff) trên database thử mới, SMTP giả lập. Xác nhận chặn Customer/Admin, Staff chờ/bị khóa; gửi link giữ nguyên mật khẩu/phiên, chỉ xác nhận mật khẩu mới mới thu hồi phiên; SMTP lỗi giữ lại token trước thao tác; hồ sơ có đơn hàng render được khi không giữ phiên Hibernate mở. Không thay schema hoặc ghi vào PetShopDB thật.

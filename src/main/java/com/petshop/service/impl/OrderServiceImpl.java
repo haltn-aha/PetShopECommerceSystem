@@ -197,10 +197,15 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public Page<Order> getCustomerOrders(Long customerId, OrderStatus status, Pageable pageable) {
-        if (status != null) {
-            return orderRepository.findByCustomerIdAndOrderStatusOrderByCreatedAtDesc(customerId, status, pageable);
+        Page<Order> page = status != null
+                ? orderRepository.findByCustomerIdAndOrderStatusOrderByCreatedAtDesc(customerId, status, pageable)
+                : orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
+        if (!page.isEmpty()) {
+            // Fetch collections for this page separately so SQL pagination stays correct.
+            // Both queries share this transaction's persistence context.
+            orderRepository.findWithItemsByIdIn(page.getContent().stream().map(Order::getId).toList());
         }
-        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
+        return page;
     }
 
     @Override

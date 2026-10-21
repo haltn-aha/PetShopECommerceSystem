@@ -35,6 +35,54 @@ public class AuthServiceImpl implements AuthService {
     private final com.petshop.service.PasswordResetMailer resetMailer;
     private final com.petshop.service.AccountAccessService accountAccessService;
     private final jakarta.persistence.EntityManager entityManager;
+    private final com.petshop.config.security.JwtService registrationTokens;
+    private final com.petshop.service.EmailService emailService;
+    private final jakarta.validation.Validator validator;
+    @org.springframework.beans.factory.annotation.Value("${petshop.public-base-url:http://localhost:8080}")
+    private String baseUrl;
+
+    @Override
+    @Transactional(readOnly = true)
+    public void startRegistration(RegisterRequestDto request) {
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) throw new IllegalArgumentException(violations.iterator().next().getMessage());
+        if (!request.getPassword().equals(request.getConfirmPassword())
+                || request.getPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Mật khẩu xác nhận không khớp hoặc vượt quá 72 byte.");
+        }
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        String phone = request.getPhone().trim();
+        if (userRepository.existsByEmail(email) || userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Email hoặc số điện thoại đã được đăng ký.");
+        }
+        emailService.requireConfigured();
+        String token = registrationTokens.generateRegistrationToken(request.getFullName().trim(), email, phone,
+                passwordEncoder.encode(request.getPassword()), 24L * 60 * 60 * 1000);
+        String link = org.springframework.web.util.UriComponentsBuilder.fromHttpUrl(baseUrl)
+                .path("/verify-email").queryParam("token", token).build().encode().toUriString();
+        emailService.sendRegistrationConfirmation(email, request.getFullName().trim(), link);
+    }
+
+    @Override
+    @Transactional
+    public User confirmRegistration(String token) {
+        io.jsonwebtoken.Claims claims;
+        try {
+            claims = registrationTokens.parseRegistrationToken(token);
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            throw new IllegalArgumentException("Liên kết xác nhận không hợp lệ hoặc đã hết hạn. Vui lòng đăng ký lại.");
+        }
+        String email = claims.getSubject(), phone = claims.get("phone", String.class);
+        if (userRepository.existsByEmail(email) || userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Tài khoản đã được kích hoạt hoặc email/SĐT đã được sử dụng. Vui lòng đăng nhập.");
+        }
+        Role role = roleRepository.findByCode("CUSTOMER")
+                .orElseThrow(() -> new IllegalStateException("Thiếu vai trò CUSTOMER."));
+        User customer = userRepository.saveAndFlush(User.builder().role(role).fullName(claims.get("fullName", String.class))
+                .email(email).phone(phone).passwordHash(claims.get("pwd", String.class)).status("ACTIVE").build());
+        cartRepository.saveAndFlush(Cart.builder().user(customer).build());
+        return customer;
+    }
 
     @Override
     @Transactional
