@@ -1,6 +1,6 @@
 # Bàn giao bản gộp Admin và ft/auth — 21/10/2026
 
-Nguồn auth: ft/auth, commit 4233a19. Nhánh tích hợp: codex/staff-mail-role-policy. Bản gộp bao gồm các sửa lỗi Admin/Voucher/Reports, toàn vẹn tài khoản/đơn hàng đã làm trước đây, và quy trình Staff qua email.
+Nguồn auth: ft/auth, commit 4233a19. Nhánh tích hợp: staff-mail-role-policy (tên hiện tại trên GitHub). Bản gộp bao gồm các sửa lỗi Admin/Voucher/Reports, toàn vẹn tài khoản/đơn hàng đã làm trước đây, và quy trình Staff qua email.
 
 ## Hành vi sau tích hợp
 
