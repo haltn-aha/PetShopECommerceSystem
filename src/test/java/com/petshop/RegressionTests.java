@@ -275,6 +275,7 @@ class RegressionTests {
     @Test void userManagementTabsAndActionsMatchAccountTypeAndState() throws Exception {
         String html=mvc.perform(get("/admin/users").with(user(new CustomUserDetails(admin))))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertFalse(html.contains("Hỗ trợ tài khoản:"));
         assertTrue(html.contains("/admin/users/"+staff.getId()+"/reset-password"));
         assertFalse(html.contains("/admin/users/"+customer.getId()+"/reset-password"));
         assertFalse(html.contains("/admin/users/"+admin.getId()+"/reset-password"));
