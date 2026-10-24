@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import com.petshop.entity.Product;
 
 @Controller
 @RequiredArgsConstructor
@@ -61,12 +62,17 @@ public class ProductCatalogController {
         return "guest/product-list";
     }
 
+
     @GetMapping("/products/{slug}")
     public String productDetail(@PathVariable String slug, Model model) {
-        model.addAttribute("product", catalogService.getProductBySlug(slug));
+        Product product = catalogService.getProductBySlug(slug);
+
+        model.addAttribute("product", product);
         model.addAttribute("relatedProducts", catalogService.getFeaturedProducts(4));
+
         return "guest/product-detail";
     }
+
 
     @GetMapping("/categories/{code}")
     public String categoryShortcut(@PathVariable String code) {

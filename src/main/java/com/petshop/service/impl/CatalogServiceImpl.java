@@ -177,14 +177,24 @@ public class CatalogServiceImpl implements CatalogService {
         return products.map(this::mapToSummaryDto);
     }
 
+
     @Override
     @Transactional(readOnly = true)
     public Product getProductBySlug(String slug) {
-        return productRepository.findBySlug(slug)
+        Product product = productRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Không tìm thấy sản phẩm: " + slug
                 ));
+
+        // Initialize images while the Hibernate session is open.
+        product.getImages().size();
+
+        // Initialize variants while the Hibernate session is open.
+        product.getVariants().size();
+
+        return product;
     }
+
 
     @Override
     @Transactional(readOnly = true)
