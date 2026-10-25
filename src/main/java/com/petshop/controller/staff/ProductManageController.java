@@ -1,5 +1,5 @@
-
 package com.petshop.controller.staff;
+
 import com.petshop.config.security.CustomUserDetails;
 import com.petshop.entity.Product;
 import com.petshop.entity.ProductVariant;
@@ -24,36 +24,56 @@ public class ProductManageController {
     private final ProductManageService productManageService;
     private final CatalogService catalogService;
 
-    // Display and filter products
+    // Hiển thị danh sách sản phẩm dành cho Staff
     @GetMapping
-    public String listStaffProducts(
+    public String listProducts(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Model model) {
 
-        Pageable pageable = PageRequest.of(
-                Math.max(page, 0),
-                Math.max(size, 1)
-        );
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        Pageable pageable = PageRequest.of(safePage, safeSize);
 
         Integer selectedCategoryId =
                 categoryId == null ? null : categoryId.intValue();
 
         Page<Product> products = productManageService.searchProducts(
-                keyword, selectedCategoryId, pageable
+                keyword,
+                selectedCategoryId,
+                pageable
         );
 
         model.addAttribute("products", products);
-        model.addAttribute("keyword", keyword != null ? keyword : "");
+        model.addAttribute("keyword", keyword == null ? "" : keyword);
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("categories", catalogService.getAllCategories());
 
         return "staff/product-list";
     }
 
-    // Display product creation form
+    // Xem chi tiết sản phẩm
+    @GetMapping("/{id}")
+    public String viewProduct(
+            @PathVariable Long id,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            model.addAttribute("product", productManageService.findById(id));
+            return "staff/product-detail";
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", "Không tìm thấy sản phẩm."
+            );
+            return "redirect:/staff/products";
+        }
+    }
+
+    // Form tạo mới sản phẩm
     @GetMapping("/create")
     public String createForm(Model model) {
         if (!model.containsAttribute("product")) {
@@ -66,33 +86,62 @@ public class ProductManageController {
         return "staff/product-form";
     }
 
-    // Create a product
+    // Xử lý lưu sản phẩm mới
     @PostMapping("/create")
     public String saveProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @ModelAttribute Product product,
             RedirectAttributes redirectAttributes) {
 
-        productManageService.createProduct(product, userDetails.getId());
+        try {
+            if (userDetails == null) {
+                redirectAttributes.addFlashAttribute(
+                        "errorMessage", "Vui lòng đăng nhập lại."
+                );
+                return "redirect:/login";
+            }
 
-        redirectAttributes.addFlashAttribute(
-                "successMessage", "Tạo sản phẩm thành công!"
-        );
+            productManageService.createProduct(product, userDetails.getId());
 
-        return "redirect:/staff/products";
+            redirectAttributes.addFlashAttribute(
+                    "successMessage", "Tạo sản phẩm thành công!"
+            );
+
+            return "redirect:/staff/products";
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", e.getMessage()
+            );
+            redirectAttributes.addFlashAttribute("product", product);
+
+            return "redirect:/staff/products/create";
+        }
     }
 
-    // Display product editing form
+    // Form chỉnh sửa sản phẩm
     @GetMapping("/{id}/edit")
-    public String editForm(@PathVariable Long id, Model model) {
-        model.addAttribute("product", productManageService.findById(id));
-        model.addAttribute("categories", catalogService.getAllCategories());
-        model.addAttribute("brands", catalogService.getAllBrands());
+    public String editForm(
+            @PathVariable Long id,
+            Model model,
+            RedirectAttributes redirectAttributes) {
 
-        return "staff/product-form";
+        try {
+            model.addAttribute("product", productManageService.findById(id));
+            model.addAttribute("categories", catalogService.getAllCategories());
+            model.addAttribute("brands", catalogService.getAllBrands());
+
+            return "staff/product-form";
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", "Không tìm thấy sản phẩm."
+            );
+            return "redirect:/staff/products";
+        }
     }
 
-    // Update a product
+    // Xử lý cập nhật sản phẩm
     @PostMapping("/{id}/edit")
     public String updateProduct(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -100,45 +149,101 @@ public class ProductManageController {
             @ModelAttribute Product product,
             RedirectAttributes redirectAttributes) {
 
-        productManageService.updateProduct(
-                id, product, userDetails.getId()
-        );
+        try {
+            if (userDetails == null) {
+                redirectAttributes.addFlashAttribute(
+                        "errorMessage", "Vui lòng đăng nhập lại."
+                );
+                return "redirect:/login";
+            }
 
-        redirectAttributes.addFlashAttribute(
-                "successMessage", "Cập nhật sản phẩm thành công!"
-        );
+            productManageService.updateProduct(
+                    id, product, userDetails.getId()
+            );
+
+            redirectAttributes.addFlashAttribute(
+                    "successMessage", "Cập nhật sản phẩm thành công!"
+            );
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", e.getMessage()
+            );
+            return "redirect:/staff/products/" + id + "/edit";
+        }
 
         return "redirect:/staff/products";
     }
 
-    // Update product status
+    // Cập nhật trạng thái ẩn/hiện sản phẩm
     @PostMapping("/{id}/status")
-    public String toggleStatus(
+    public String updateProductStatus(
             @PathVariable Long id,
             @RequestParam ProductStatus status,
             RedirectAttributes redirectAttributes) {
 
-        productManageService.toggleProductStatus(id, status);
+        try {
+            productManageService.toggleProductStatus(id, status);
 
-        redirectAttributes.addFlashAttribute(
-                "successMessage", "Cập nhật trạng thái thành công!"
-        );
+            redirectAttributes.addFlashAttribute(
+                    "successMessage", "Cập nhật trạng thái thành công!"
+            );
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", e.getMessage()
+            );
+        }
 
         return "redirect:/staff/products";
     }
 
-    // Display product variants
-    @GetMapping("/{id}/variants")
-    public String manageVariants(@PathVariable Long id, Model model) {
-        Product product = productManageService.findById(id);
+    // Xóa mềm sản phẩm (chuyển sang trạng thái ẩn)
+    @PostMapping("/{id}/delete")
+    public String hideProduct(
+            @PathVariable Long id,
+            RedirectAttributes redirectAttributes) {
 
-        model.addAttribute("product", product);
-        model.addAttribute("newVariant", new ProductVariant());
+        try {
+            productManageService.deleteProduct(id);
 
-        return "staff/variant-list";
+            redirectAttributes.addFlashAttribute(
+                    "successMessage", "Đã ẩn sản phẩm thành công!"
+            );
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", e.getMessage()
+            );
+        }
+
+        return "redirect:/staff/products";
     }
 
-    // Add a product variant
+    // Hiển thị danh sách biến thể sản phẩm (SKU)
+    @GetMapping("/{id}/variants")
+    public String manageVariants(
+            @PathVariable Long id,
+            Model model,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            Product product = productManageService.findById(id);
+
+            model.addAttribute("product", product);
+            model.addAttribute("newVariant", new ProductVariant());
+
+            return "staff/variant-list";
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", "Không tìm thấy sản phẩm."
+            );
+            return "redirect:/staff/products";
+        }
+    }
+
+    // Thêm biến thể cho sản phẩm
     @PostMapping("/{id}/variants")
     public String addVariant(
             @PathVariable Long id,
@@ -151,6 +256,7 @@ public class ProductManageController {
             redirectAttributes.addFlashAttribute(
                     "successMessage", "Thêm biến thể SKU thành công!"
             );
+
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute(
                     "errorMessage", e.getMessage()
@@ -160,7 +266,7 @@ public class ProductManageController {
         return "redirect:/staff/products/" + id + "/variants";
     }
 
-    // Update a product variant
+    // Cập nhật biến thể sản phẩm
     @PostMapping("/variants/{vid}/edit")
     public String updateVariant(
             @PathVariable Long vid,
@@ -168,11 +274,18 @@ public class ProductManageController {
             @ModelAttribute ProductVariant variant,
             RedirectAttributes redirectAttributes) {
 
-        productManageService.updateVariant(vid, variant);
+        try {
+            productManageService.updateVariant(vid, variant);
 
-        redirectAttributes.addFlashAttribute(
-                "successMessage", "Cập nhật biến thể thành công!"
-        );
+            redirectAttributes.addFlashAttribute(
+                    "successMessage", "Cập nhật biến thể thành công!"
+            );
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage", e.getMessage()
+            );
+        }
 
         return "redirect:/staff/products/" + productId + "/variants";
     }

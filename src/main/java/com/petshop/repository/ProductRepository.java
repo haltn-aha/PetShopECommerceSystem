@@ -21,6 +21,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     boolean existsBySlug(String slug);
 
+    boolean existsByBrand_Id(Integer brandId);
     Page<Product> findByStatus(ProductStatus status, Pageable pageable);
 
     Page<Product> findByStatusAndIsFeaturedTrue(ProductStatus status, Pageable pageable);
@@ -43,6 +44,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Page<Product> findByNameContainingIgnoreCaseAndCategoryId(String name, Long categoryId, Pageable pageable);
 
     Page<Product> findByCategory_Id(Integer categoryId, Pageable pageable);
+
 
     Page<Product> findByNameContainingIgnoreCaseAndCategory_Id(String name, Integer categoryId, Pageable pageable);
 }

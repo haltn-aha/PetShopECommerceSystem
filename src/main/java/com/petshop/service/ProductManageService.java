@@ -13,14 +13,13 @@ public interface ProductManageService {
 
     Page<Product> getProducts(Pageable pageable);
 
-
     Page<Product> searchProducts(String keyword, Pageable pageable);
 
     Page<Product> searchProducts(
             String keyword,
             Integer categoryId,
-            Pageable pageable);
-
+            Pageable pageable
+    );
 
     Product findById(Long id);
 
@@ -29,6 +28,8 @@ public interface ProductManageService {
     Product updateProduct(Long id, Product product, Long staffId);
 
     void toggleProductStatus(Long id, ProductStatus status);
+
+    void deleteProduct(Long id);
 
     ProductVariant addVariant(Long productId, ProductVariant variant);
 

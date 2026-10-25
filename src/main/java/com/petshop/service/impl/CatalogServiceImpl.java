@@ -7,7 +7,9 @@ import com.petshop.entity.Brand;
 import com.petshop.entity.Category;
 import com.petshop.entity.Product;
 import com.petshop.entity.ProductImage;
+import com.petshop.entity.ProductVariant;
 import com.petshop.entity.enums.ProductStatus;
+import com.petshop.entity.enums.ProductVariantStatus;
 import com.petshop.repository.BrandRepository;
 import com.petshop.repository.CategoryRepository;
 import com.petshop.repository.ProductRepository;
@@ -21,6 +23,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -51,8 +54,10 @@ public class CatalogServiceImpl implements CatalogService {
                         predicate,
                         cb.or(
                                 cb.like(cb.lower(root.get("name")), kw),
-                                cb.like(cb.lower(
-                                        root.get("shortDescription")), kw)
+                                cb.like(
+                                        cb.lower(root.get("shortDescription")),
+                                        kw
+                                )
                         )
                 );
             }
@@ -60,10 +65,7 @@ public class CatalogServiceImpl implements CatalogService {
             if (categoryId != null) {
                 predicate = cb.and(
                         predicate,
-                        cb.equal(
-                                root.get("category").get("id"),
-                                categoryId
-                        )
+                        cb.equal(root.get("category").get("id"), categoryId)
                 );
             }
 
@@ -99,10 +101,7 @@ public class CatalogServiceImpl implements CatalogService {
                 predicate = cb.and(
                         predicate,
                         cb.or(
-                                cb.like(
-                                        cb.lower(root.get("name")),
-                                        keyword
-                                ),
+                                cb.like(cb.lower(root.get("name")), keyword),
                                 cb.like(
                                         cb.lower(root.get("shortDescription")),
                                         keyword
@@ -134,20 +133,14 @@ public class CatalogServiceImpl implements CatalogService {
             if (filter.getPetType() != null) {
                 predicate = cb.and(
                         predicate,
-                        cb.equal(
-                                root.get("petType"),
-                                filter.getPetType()
-                        )
+                        cb.equal(root.get("petType"), filter.getPetType())
                 );
             }
 
             return predicate;
         };
 
-        Sort sort = Sort.by(
-                Sort.Direction.DESC,
-                "createdAt"
-        );
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
 
         if (filter != null && filter.getSortBy() != null) {
             switch (filter.getSortBy()) {
@@ -177,7 +170,6 @@ public class CatalogServiceImpl implements CatalogService {
         return products.map(this::mapToSummaryDto);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public Product getProductBySlug(String slug) {
@@ -186,15 +178,12 @@ public class CatalogServiceImpl implements CatalogService {
                         "Không tìm thấy sản phẩm: " + slug
                 ));
 
-        // Initialize images while the Hibernate session is open.
+        // Initialize lazy collections while the session is open.
         product.getImages().size();
-
-        // Initialize variants while the Hibernate session is open.
         product.getVariants().size();
 
         return product;
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -221,18 +210,19 @@ public class CatalogServiceImpl implements CatalogService {
             return List.of();
         }
 
+        Specification<Product> spec = (root, query, cb) -> cb.and(
+                cb.equal(root.get("status"), ProductStatus.ACTIVE),
+                cb.isTrue(root.get("isFeatured"))
+        );
+
         Pageable pageable = PageRequest.of(
                 0,
                 limit,
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
 
-        Page<Product> products = productRepository.findByStatus(
-                ProductStatus.ACTIVE,
-                pageable
-        );
-
-        return products.getContent()
+        return productRepository.findAll(spec, pageable)
+                .getContent()
                 .stream()
                 .map(this::mapToSummaryDto)
                 .toList();
@@ -244,7 +234,6 @@ public class CatalogServiceImpl implements CatalogService {
         if (product.getImages() != null
                 && !product.getImages().isEmpty()) {
 
-            // Prefer the primary image, ordered by SortOrder.
             primaryImageUrl = product.getImages()
                     .stream()
                     .filter(image ->
@@ -258,7 +247,6 @@ public class CatalogServiceImpl implements CatalogService {
                     .findFirst()
                     .orElse(null);
 
-            // Fall back to the first available image.
             if (primaryImageUrl == null) {
                 primaryImageUrl = product.getImages()
                         .stream()
@@ -272,6 +260,31 @@ public class CatalogServiceImpl implements CatalogService {
                         .orElse(null);
             }
         }
+
+        List<ProductVariant> activeVariants = product.getVariants()
+                .stream()
+                .filter(variant ->
+                        variant.getStatus() == ProductVariantStatus.ACTIVE)
+                .toList();
+
+        BigDecimal minPrice = activeVariants.stream()
+                .map(ProductVariant::getPrice)
+                .filter(price -> price != null)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+
+        BigDecimal maxPrice = activeVariants.stream()
+                .map(ProductVariant::getPrice)
+                .filter(price -> price != null)
+                .max(BigDecimal::compareTo)
+                .orElse(null);
+
+        int totalStock = activeVariants.stream()
+                .mapToInt(variant ->
+                        variant.getStockQuantity() == null
+                                ? 0
+                                : variant.getStockQuantity())
+                .sum();
 
         return ProductSummaryDto.builder()
                 .id(product.getId())
@@ -290,6 +303,9 @@ public class CatalogServiceImpl implements CatalogService {
                 .petType(product.getPetType())
                 .primaryImageUrl(primaryImageUrl)
                 .imageUrl(primaryImageUrl)
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
+                .totalStock(totalStock)
                 .build();
     }
 }

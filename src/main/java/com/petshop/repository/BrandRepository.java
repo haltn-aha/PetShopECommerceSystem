@@ -10,7 +10,11 @@ import java.util.List;
 @Repository
 public interface BrandRepository extends JpaRepository<Brand, Integer> {
 
-    boolean existsByName(String name);
+    boolean existsByNameIgnoreCase(String name);
+
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
 
     List<Brand> findByIsActiveTrueOrderByNameAsc();
+
+    List<Brand> findAllByOrderByNameAsc();
 }

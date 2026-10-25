@@ -72,87 +72,115 @@
         </div>
     </section>
 
-    <!-- Sản phẩm bán chạy -->
+
+    <!-- Sản phẩm nổi bật -->
     <section class="py-5 bg-white">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 class="fw-bold">Sản Phẩm Bán Chạy Nhất</h2>
-                <p class="text-muted">Những sản phẩm được khách hàng yêu thích nhất</p>
+                <h2 class="fw-bold">Sản Phẩm Nổi Bật</h2>
+                <p class="text-muted">Những sản phẩm được PetShop tuyển chọn dành cho thú cưng</p>
             </div>
 
-            <!-- Nếu có sản phẩm nổi bật -->
-            <div class="row g-4" th:if="${featuredProducts != null and not #lists.isEmpty(featuredProducts)}">
-                <div class="col-12 col-sm-6 col-lg-3" th:each="product : ${featuredProducts}">
+            <div class="row g-4"
+                 th:if="${featuredProducts != null and !#lists.isEmpty(featuredProducts)}">
+
+                <div class="col-12 col-sm-6 col-lg-3"
+                     th:each="product : ${featuredProducts}">
+
                     <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
 
+                        <!-- Ảnh sản phẩm lấy từ database -->
+                        <a th:href="@{/products/{slug}(slug=${product.slug})}"
+                           class="text-decoration-none">
 
-                        <img src="https://product.hstatic.net/200000264739/product/hat_royal_canin_poodle_adult_cho_cho_e666148a882542eda7bdaf9a2c002c30_master.jpg"
-                             class="card-img-top" alt="Product" style="height: 200px; object-fit: cover;">
+                            <img th:if="${product.primaryImageUrl != null and !#strings.isEmpty(product.primaryImageUrl)}"
+                                 th:src="${product.primaryImageUrl}"
+                                 th:alt="${product.name}"
+                                 class="card-img-top"
+                                 style="height: 200px; object-fit: cover;">
+
+                            <div th:unless="${product.primaryImageUrl != null and !#strings.isEmpty(product.primaryImageUrl)}"
+                                 class="d-flex align-items-center justify-content-center bg-light"
+                                 style="height: 200px;">
+                                <i class="bi bi-image text-secondary fs-1"></i>
+                            </div>
+                        </a>
 
                         <div class="card-body d-flex flex-column">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="badge bg-secondary" th:text="${product.petType}">DOG</span>
-                                <small class="text-warning">
-                                    <i class="bi bi-star-fill"></i> 5.0
-                                </small>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-success">Nổi bật</span>
+
+                                <span class="badge bg-secondary"
+                                      th:text="${product.petType}">
+                                DOG
+                            </span>
                             </div>
-                            <h6 class="card-title fw-bold text-truncate" th:text="${product.name}">Tên sản phẩm</h6>
 
-                            <!-- Giá tĩnh an toàn tránh lỗi format số -->
-                            <p class="text-danger fw-bold fs-5 mb-3">Liên hệ</p>
+                            <h6 class="card-title fw-bold"
+                                th:text="${product.name}">
+                                Tên sản phẩm
+                            </h6>
 
-                            <a th:href="@{/products/{slug}(slug=${product.slug})}" class="btn btn-outline-primary mt-auto w-100">Chi Tiết</a>
+                            <p class="small text-muted mb-2"
+                               th:if="${product.brandName != null and !#strings.isEmpty(product.brandName)}"
+                               th:text="${product.brandName}">
+                                Thương hiệu
+                            </p>
+
+                            <!-- Giá bán từ database -->
+                            <div class="mb-2">
+                            <span th:if="${product.minPrice != null}"
+                                  class="text-danger fw-bold fs-5"
+                                  th:text="${product.maxPrice != null and product.minPrice.compareTo(product.maxPrice) != 0
+                                      ? #numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT') + ' - ' + #numbers.formatDecimal(product.maxPrice, 0, 'COMMA', 0, 'POINT') + ' đ'
+                                      : #numbers.formatDecimal(product.minPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                                Giá sản phẩm
+                            </span>
+
+                                <span th:if="${product.minPrice == null}"
+                                      class="text-muted">
+                                Liên hệ
+                            </span>
+                            </div>
+
+                            <!-- Trạng thái tồn kho -->
+                            <div class="mb-3">
+                            <span th:if="${product.totalStock != null and product.totalStock > 0}"
+                                  class="badge bg-success-subtle text-success">
+                                Còn hàng
+                            </span>
+
+                                <span th:unless="${product.totalStock != null and product.totalStock > 0}"
+                                      class="badge bg-danger-subtle text-danger">
+                                Hết hàng
+                            </span>
+                            </div>
+
+                            <a th:href="@{/products/{slug}(slug=${product.slug})}"
+                               class="btn btn-outline-primary mt-auto w-100">
+                                <i class="bi bi-eye me-1"></i> Chi tiết
+                            </a>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Nếu danh sách trống -->
-            <div class="text-center py-5 bg-light rounded-3" th:if="${featuredProducts == null or #lists.isEmpty(featuredProducts)}">
-                <p class="text-muted fs-5 mb-0">Hiện chưa có sản phẩm bán chạy nào được cập nhật.</p>
+            <div class="text-center py-5 bg-light rounded-3"
+                 th:if="${featuredProducts == null or #lists.isEmpty(featuredProducts)}">
+                <i class="bi bi-box-seam fs-1 text-secondary"></i>
+                <p class="text-muted fs-5 mt-3 mb-0">
+                    Chưa có sản phẩm nổi bật. Em hãy kiểm tra sản phẩm đã được đánh dấu nổi bật trong quản trị chưa nhé.
+                </p>
+            </div>
+
+            <div class="text-center mt-4">
+                <a th:href="@{/products}" class="btn btn-success px-4">
+                    Xem tất cả sản phẩm
+                </a>
             </div>
         </div>
     </section>
 
-    <!-- Tại sao chọn chúng tôi? -->
-    <section class="py-5 border-top bg-light">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Tại sao chọn chúng tôi?</h2>
-                <p class="text-muted">Cam kết mang lại dịch vụ tốt nhất cho thú cưng của bạn</p>
-            </div>
-            <div class="row g-4 text-center">
-                <div class="col-md-3">
-                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
-                        <i class="bi bi-truck fs-1 text-success mb-2"></i>
-                        <h5 class="fw-bold mt-2">Giao Hàng Nhanh</h5>
-                        <p class="text-muted small mb-0">Giao hàng siêu tốc trong 24h trên toàn quốc.</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
-                        <i class="bi bi-shield-check fs-1 text-success mb-2"></i>
-                        <h5 class="fw-bold mt-2">Thanh Toán An Toàn</h5>
-                        <p class="text-muted small mb-0">Bảo mật tuyệt đối cho mọi giao dịch thanh toán.</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
-                        <i class="bi bi-award fs-1 text-warning mb-2"></i>
-                        <h5 class="fw-bold mt-2">Sản Phẩm Chính Hãng</h5>
-                        <p class="text-muted small mb-0">100% sản phẩm được kiểm định chất lượng rõ ràng.</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="p-3 bg-white rounded-3 shadow-sm h-100">
-                        <i class="bi bi-headset fs-1 text-danger mb-2"></i>
-                        <h5 class="fw-bold mt-2">Hỗ Trợ Chuyên Sâu</h5>
-                        <p class="text-muted small mb-0">Tư vấn từ các chuyên gia thú y giàu kinh nghiệm.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
 </div>
 </body>

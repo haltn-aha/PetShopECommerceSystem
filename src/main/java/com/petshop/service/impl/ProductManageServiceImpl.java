@@ -1,16 +1,19 @@
+
 package com.petshop.service.impl;
 
 import com.petshop.entity.Brand;
 import com.petshop.entity.Category;
 import com.petshop.entity.Product;
 import com.petshop.entity.ProductVariant;
+import com.petshop.entity.User;
+import com.petshop.entity.enums.PetType;
 import com.petshop.entity.enums.ProductStatus;
 import com.petshop.entity.enums.ProductVariantStatus;
-import com.petshop.entity.enums.PetType;
 import com.petshop.repository.BrandRepository;
 import com.petshop.repository.CategoryRepository;
 import com.petshop.repository.ProductRepository;
 import com.petshop.repository.ProductVariantRepository;
+import com.petshop.repository.UserRepository;
 import com.petshop.service.ProductManageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,6 +34,7 @@ public class ProductManageServiceImpl implements ProductManageService {
     private final ProductVariantRepository productVariantRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -52,7 +56,9 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional(readOnly = true)
     public Page<Product> searchProducts(
-            String keyword, Integer categoryId, Pageable pageable) {
+            String keyword,
+            Integer categoryId,
+            Pageable pageable) {
 
         boolean hasKeyword = keyword != null && !keyword.isBlank();
         boolean hasCategory = categoryId != null;
@@ -92,9 +98,19 @@ public class ProductManageServiceImpl implements ProductManageService {
             throw new IllegalArgumentException("Product name is required.");
         }
 
+        if (staffId == null) {
+            throw new IllegalArgumentException("Creator is required.");
+        }
+
+        User creator = userRepository.findById(staffId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("User not found: " + staffId));
+
         product.setName(product.getName().trim());
         product.setCategory(getCategory(product));
         product.setBrand(getBrand(product));
+        product.setCreatedBy(creator);
+        product.setUpdatedBy(creator);
         product.setSlug(createSlug(product.getName()));
 
         if (product.getStatus() == null) {
@@ -119,10 +135,15 @@ public class ProductManageServiceImpl implements ProductManageService {
         }
 
         Product existing = findById(id);
+
         String oldName = existing.getName();
         String newName = product.getName().trim();
 
         existing.setName(newName);
+        existing.setShortDescription(product.getShortDescription());
+        existing.setDescription(product.getDescription());
+        existing.setUsageInstructions(product.getUsageInstructions());
+        existing.setFeatured(product.isFeatured());
 
         if (product.getPetType() != null) {
             existing.setPetType(product.getPetType());
@@ -139,6 +160,13 @@ public class ProductManageServiceImpl implements ProductManageService {
             existing.setSlug(createSlug(newName));
         }
 
+        if (staffId != null) {
+            User updater = userRepository.findById(staffId)
+                    .orElseThrow(() ->
+                            new IllegalArgumentException("User not found: " + staffId));
+            existing.setUpdatedBy(updater);
+        }
+
         return productRepository.save(existing);
     }
 
@@ -150,6 +178,17 @@ public class ProductManageServiceImpl implements ProductManageService {
 
         Product product = findById(id);
         product.setStatus(status);
+        productRepository.save(product);
+    }
+
+    /**
+     * Hides a product instead of deleting it from the database.
+     * This preserves product and order history.
+     */
+    @Override
+    public void deleteProduct(Long id) {
+        Product product = findById(id);
+        product.setStatus(ProductStatus.HIDDEN);
         productRepository.save(product);
     }
 
