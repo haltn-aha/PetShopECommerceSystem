@@ -42,6 +42,7 @@ public class CartServiceImpl implements CartService {
         return mapToDto(cart);
     }
 
+    //tồn 5, add 10 -> add 5
     @Override
     @Transactional
     public CartDto addItemToCart(Long userId, Long variantId, int quantity) {
@@ -74,14 +75,13 @@ public class CartServiceImpl implements CartService {
             cartItemRepository.save(item);
         } else {
             if (variant.getStockQuantity() <= 0) throw new IllegalArgumentException("Sản phẩm đã hết hàng.");
-            int newQuantity = (int)Math.min((long)item.getQuantity() + quantity, variant.getStockQuantity());
-            if (newQuantity > variant.getStockQuantity()) {
-                newQuantity = variant.getStockQuantity();
-            }
+            long requested = (long)item.getQuantity() + quantity;
+            if (requested > variant.getStockQuantity()) throw new IllegalArgumentException("Trong giỏ đã có " + item.getQuantity() + " sản phẩm. Kho hiện chỉ còn " + variant.getStockQuantity() + ".");
+            int newQuantity = (int)requested;
+
             item.setQuantity(newQuantity);
             cartItemRepository.save(item);
         }
-
         return getCartForUser(userId);
     }
 
@@ -98,15 +98,25 @@ public class CartServiceImpl implements CartService {
 
         if (newQuantity <= 0) {
             cartItemRepository.delete(item);
-        } else {
-            if (item.getVariant().getStockQuantity() <= 0 || item.getVariant().getStatus() != ProductVariantStatus.ACTIVE
-                    || item.getVariant().getProduct().getStatus() != com.petshop.entity.enums.ProductStatus.ACTIVE) {
-                throw new IllegalArgumentException("Sản phẩm hết hàng hoặc tạm dừng bán; vui lòng xóa khỏi giỏ.");
-            }
-            int allowed = Math.min(newQuantity, item.getVariant().getStockQuantity());
-            item.setQuantity(allowed);
-            cartItemRepository.save(item);
+            return getCartForUser(userId);
         }
+
+        ProductVariant variant = item.getVariant();
+
+        if (variant.getStatus() != ProductVariantStatus.ACTIVE || variant.getProduct().getStatus() != com.petshop.entity.enums.ProductStatus.ACTIVE) {
+            throw new IllegalArgumentException("Sản phẩm hiện đang tạm dừng bán.");
+        }
+
+        if (variant.getStockQuantity() <= 0) {
+            throw new IllegalArgumentException("Sản phẩm hiện đã hết hàng.");
+        }
+
+        if (newQuantity > variant.getStockQuantity()) {
+            throw new IllegalArgumentException("Chỉ còn " + variant.getStockQuantity() + " sản phẩm trong kho.");
+        }
+
+        item.setQuantity(newQuantity);
+        cartItemRepository.save(item);
 
         return getCartForUser(userId);
     }
