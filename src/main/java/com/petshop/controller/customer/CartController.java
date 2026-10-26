@@ -45,30 +45,27 @@ public class CartController {
     }
 
     @PostMapping("/update")
-    @ResponseBody
-    public org.springframework.http.ResponseEntity<?> updateQuantity(
+    public Object updateQuantity(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam Long itemId,
             @RequestParam int quantity,
             @RequestHeader(value = "X-Requested-With", required = false) String requestedWith,
-            HttpSession session) {
+            HttpSession session, RedirectAttributes redirectAttributes) {
         try {
             CartDto cart = cartService.updateItemQuantity(userDetails.getId(), itemId, quantity);
             session.setAttribute("cartCount", cart.getTotalQuantity());
             if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) {
                 return org.springframework.http.ResponseEntity.ok(cart);
             }
-            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SEE_OTHER)
-                    .header(org.springframework.http.HttpHeaders.LOCATION, "/cart")
-                    .build();
+            redirectAttributes.addFlashAttribute("successMessage", "Đã cập nhật số lượng sản phẩm.");
+            return "redirect:/cart";
         } catch (IllegalArgumentException | IllegalStateException e) {
             if ("XMLHttpRequest".equalsIgnoreCase(requestedWith)) {
                 return org.springframework.http.ResponseEntity.badRequest()
                         .body(java.util.Map.of("error", e.getMessage()));
             }
-            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.SEE_OTHER)
-                    .header(org.springframework.http.HttpHeaders.LOCATION, "/cart")
-                    .build();
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/cart";
         }
     }
 
@@ -77,9 +74,16 @@ public class CartController {
                              @RequestParam Long itemId,
                              HttpSession session,
                              RedirectAttributes redirectAttributes) {
-        CartDto cart = cartService.removeItem(userDetails.getId(), itemId);
-        session.setAttribute("cartCount", cart.getTotalQuantity());
-        redirectAttributes.addFlashAttribute("infoMessage", "Đã xóa sản phẩm khỏi giỏ hàng.");
+        try {
+            CartDto cart = cartService.removeItem(userDetails.getId(), itemId);
+
+            session.setAttribute("cartCount", cart.getTotalQuantity());
+
+            redirectAttributes.addFlashAttribute("infoMessage", "Đã xóa sản phẩm khỏi giỏ hàng.");
+
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/cart";
     }
 
