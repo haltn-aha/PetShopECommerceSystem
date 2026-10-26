@@ -3,51 +3,243 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main-layout}">
 <head>
-    <title>Giỏ Hàng Của Bạn</title>
+    <title>Giỏ Hàng Của Bạn - PetShop</title>
+    <th:block layout:fragment="custom-css">
+        <style>
+            .cart-item-img-container {
+                width: 68px;
+                height: 68px;
+                border-radius: 14px;
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                flex-shrink: 0;
+            }
+            .cart-item-img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                transition: transform 0.2s ease;
+            }
+            .cart-item-img:hover {
+                transform: scale(1.06);
+            }
+            .cart-summary-card {
+                border-radius: 20px;
+                border: 1px solid #e2e8f0;
+                background-color: #ffffff;
+            }
+            .category-suggest-card {
+                border-radius: 14px;
+                border: 1px solid #e2e8f0;
+                transition: all 0.2s ease;
+                background-color: #ffffff;
+                text-decoration: none;
+            }
+            .category-suggest-card:hover {
+                transform: translateY(-3px);
+                border-color: #0d9488;
+                box-shadow: 0 8px 20px rgba(13, 148, 136, 0.12);
+            }
+
+            /* Quantity Stepper (+ / -) */
+            .qty-stepper {
+                display: inline-flex;
+                align-items: center;
+                background: #f1f5f9;
+                border: 1px solid #cbd5e1;
+                border-radius: 9999px;
+                padding: 2px 4px;
+                transition: all 0.2s ease;
+            }
+            .qty-stepper:focus-within, .qty-stepper:hover {
+                border-color: #0d9488;
+                background: #ffffff;
+                box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+            }
+            .qty-btn {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                border: none;
+                background: #ffffff;
+                color: #475569;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                transition: all 0.15s ease;
+            }
+            .qty-btn:hover:not(:disabled) {
+                background: #0d9488;
+                color: #ffffff;
+                transform: scale(1.08);
+            }
+            .qty-btn:active:not(:disabled) {
+                transform: scale(0.92);
+            }
+            .qty-btn:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
+            .qty-input {
+                width: 40px;
+                border: none;
+                background: transparent;
+                text-align: center;
+                font-weight: 700;
+                color: #1e293b;
+                font-size: 0.95rem;
+                padding: 0;
+                margin: 0 2px;
+            }
+            .qty-input:focus {
+                outline: none;
+                box-shadow: none;
+            }
+            .qty-input::-webkit-outer-spin-button,
+            .qty-input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            .qty-input[type=number] {
+                -moz-appearance: textfield;
+            }
+        </style>
+    </th:block>
 </head>
 <body>
-<div layout:fragment="content" class="py-5">
+<div layout:fragment="content" class="py-4">
     <div class="container">
-        <h3 class="fw-bold mb-4">Giỏ Hàng</h3>
-        
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a th:href="@{/}" class="text-decoration-none">Trang chủ</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/customer/profile}" class="text-decoration-none">Hồ sơ cá nhân</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Giỏ hàng của bạn</li>
+            </ol>
+        </nav>
+
+        <!-- Flash messages -->
+        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show rounded-4 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            <span th:text="${successMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show rounded-4 shadow-sm mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div th:if="${infoMessage}" class="alert alert-info alert-dismissible fade show rounded-4 shadow-sm mb-4" role="alert">
+            <i class="bi bi-info-circle-fill me-2"></i>
+            <span th:text="${infoMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" onclick="goBackPreviousPage()" class="btn btn-outline-secondary rounded-pill px-3 py-2 d-flex align-items-center gap-1 shadow-sm" title="Quay về trang trước">
+                    <i class="bi bi-arrow-left"></i>
+                    <span class="fw-semibold small">Quay lại</span>
+                </button>
+                <div>
+                    <h3 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-cart3 text-warning me-2"></i> Giỏ Hàng Của Bạn
+                    </h3>
+                    <p class="text-muted small mb-0">Kiểm tra các sản phẩm đã chọn trước khi thanh toán</p>
+                </div>
+            </div>
+            <a th:href="@{/products}" class="btn btn-outline-secondary rounded-pill px-4">
+                <i class="bi bi-bag-plus me-1"></i> Tiếp Tục Mua Sắm
+            </a>
+        </div>
+
+        <!-- Trường hợp Giỏ hàng có sản phẩm -->
         <div th:if="${cart != null and !cart.items.empty}" class="row g-4">
             <div class="col-lg-8">
-                <div class="card border-0 shadow-sm rounded-4 p-3">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
                     <div class="table-responsive">
-                        <table class="table align-middle">
-                            <thead>
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Sản phẩm</th>
-                                    <th>Đơn giá</th>
-                                    <th>Số lượng</th>
-                                    <th>Thành tiền</th>
-                                    <th></th>
+                                    <th class="border-0">Sản phẩm</th>
+                                    <th class="border-0 text-center">Đơn giá</th>
+                                    <th class="border-0 text-center" style="width: 160px;">Số lượng</th>
+                                    <th class="border-0 text-end">Thành tiền</th>
+                                    <th class="border-0" style="width: 50px;"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr th:each="item : ${cart.items}">
+                                <tr th:each="item : ${cart.items}" th:id="'cart-row-' + ${item.id}" th:data-item-id="${item.id}">
                                     <td>
-                                        <div class="d-flex align-items-center gap-3">
-                                            <img th:src="${item.imageUrl != null ? item.imageUrl : 'https://placehold.co/80x80?text=Pet'}" width="60" height="60" class="rounded" alt="Item">
+                                        <div class="d-flex align-items-center gap-3 py-2">
+                                            <!-- Khung hình ảnh kèm fallback icon nếu ảnh lỗi -->
+                                            <div class="cart-item-img-container">
+                                                <img th:if="${item.imageUrl != null and !item.imageUrl.isBlank()}"
+                                                     th:src="${item.imageUrl}"
+                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                                     class="cart-item-img" alt="Sản phẩm">
+                                                <div class="d-flex align-items-center justify-content-center text-pet-primary w-100 h-100"
+                                                     th:style="${item.imageUrl != null and !item.imageUrl.isBlank() ? 'display: none;' : ''}">
+                                                     <i class="bi bi-box2-heart fs-3"></i>
+                                                </div>
+                                            </div>
                                             <div>
-                                                <h6 class="fw-bold mb-0" th:text="${item.productName}">Tên sản phẩm</h6>
-                                                <small class="text-muted" th:text="${item.variantName}">Phân loại</small>
+                                                <h6 class="fw-bold mb-1 text-dark" th:text="${item.productName}">Tên sản phẩm</h6>
+                                                <small class="text-muted" th:text="${item.variantName}">Phân loại biến thể</small>
                                             </div>
                                         </div>
                                     </td>
-                                    <td th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">100.000 đ</td>
-                                    <td>
-                                        <form th:action="@{/cart/update}" method="post" class="d-flex align-items-center gap-2">
+                                    <td class="text-center fw-semibold text-dark small"
+                                        th:text="${#numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                                        100.000 đ
+                                    </td>
+                                    <td class="text-center">
+                                        <!-- Form tăng giảm số lượng mượt mà bằng AJAX không reload trang, không sinh lịch sử trình duyệt -->
+                                        <form th:action="@{/cart/update}" method="post" class="qty-form d-inline-block" onsubmit="event.preventDefault(); return false;">
                                             <input type="hidden" name="itemId" th:value="${item.id}">
-                                            <input type="number" name="quantity" class="form-control form-control-sm" th:value="${item.quantity}" min="1" th:max="${item.maxStock}" style="width: 70px;">
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat"></i></button>
+                                            <div class="qty-stepper">
+                                                <!-- Nút Giảm (-) -->
+                                                <button type="button" class="qty-btn btn-qty-dec"
+                                                        onclick="changeCartQty(this, -1)"
+                                                        title="Giảm 1">
+                                                    <i class="bi bi-dash fw-bold"></i>
+                                                </button>
+
+                                                <!-- Số lượng hiển thị chính giữa -->
+                                                <input type="number" name="quantity" class="qty-input"
+                                                       th:value="${item.quantity}" min="1" th:max="${item.maxStock}"
+                                                       onchange="onQtyInputChange(this)" title="Số lượng">
+
+                                                <!-- Nút Tăng (+) -->
+                                                <button type="button" class="qty-btn btn-qty-inc"
+                                                        onclick="changeCartQty(this, 1)"
+                                                        th:disabled="${item.maxStock != null and item.quantity >= item.maxStock}"
+                                                        title="Tăng 1">
+                                                    <i class="bi bi-plus fw-bold"></i>
+                                                </button>
+                                            </div>
                                         </form>
                                     </td>
-                                    <td class="fw-bold text-danger" th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT') + ' đ'}">200.000 đ</td>
-                                    <td>
-                                        <form th:action="@{/cart/remove}" method="post">
+                                    <td class="text-end fw-bold text-danger item-line-total"
+                                        th:data-item-id="${item.id}"
+                                        th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                                        200.000 đ
+                                    </td>
+                                    <td class="text-end">
+                                        <!-- Form Xóa sản phẩm -->
+                                        <form th:action="@{/cart/remove}" method="post" class="remove-item-form"
+                                              onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?');">
                                             <input type="hidden" name="itemId" th:value="${item.id}">
-                                            <button type="submit" class="btn btn-sm text-danger"><i class="bi bi-trash"></i></button>
+                                            <button type="submit" class="btn btn-sm text-danger btn-light rounded-circle p-2" title="Xóa món này">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
                                         </form>
                                     </td>
                                 </tr>
@@ -55,31 +247,269 @@
                         </table>
                     </div>
                 </div>
-            </div>
-            
-            <div class="col-lg-4">
-                <div class="card border-0 shadow-sm rounded-4 p-4">
-                    <h5 class="fw-bold mb-3">Tóm Tắt Đơn Hàng</h5>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Tạm tính:</span>
-                        <span class="fw-bold" th:text="${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT') + ' đ'}">0 đ</span>
+
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <form th:action="@{/cart/clear}" method="post"
+                          onsubmit="return confirm('Bạn có chắc chắn muốn làm trống toàn bộ giỏ hàng?');">
+                        <button type="submit" class="btn btn-outline-danger rounded-pill px-4">
+                            <i class="bi bi-trash me-1"></i> Xóa Toàn Bộ Giỏ Hàng
+                        </button>
+                    </form>
+                    <div class="d-flex gap-2">
+                        <button type="button" onclick="goBackPreviousPage()" class="btn btn-light border rounded-pill px-4">
+                            <i class="bi bi-arrow-left me-1"></i> Quay Lại Trang Trước
+                        </button>
+                        <a th:href="@{/customer/profile}" class="btn btn-outline-secondary rounded-pill px-4">
+                            <i class="bi bi-person me-1"></i> Xem Hồ Sơ Cá Nhân
+                        </a>
                     </div>
+                </div>
+            </div>
+
+            <!-- Cột phải: Tóm tắt đơn hàng -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm cart-summary-card p-4 sticky-top" style="top: 24px;">
+                    <h5 class="fw-bold mb-3 text-dark pb-2 border-bottom">Tóm Tắt Đơn Hàng</h5>
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Tổng tiền hàng:</span>
+                        <span class="fw-bold text-dark cart-subtotal-val" th:text="${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT') + ' đ'}">0 đ</span>
+                    </div>
+
                     <div class="d-flex justify-content-between mb-3 text-muted">
                         <span>Phí vận chuyển:</span>
                         <span>30.000 đ</span>
                     </div>
-                    <hr>
-                    <a th:href="@{/checkout}" class="btn btn-pet-primary w-100 py-2 fw-semibold">Tiến Hành Đặt Hàng</a>
+
+                    <div class="alert alert-info py-2 px-3 small rounded-3 mb-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-shield-check text-pet-primary fs-5"></i>
+                        <span>Phí vận chuyển cố định <strong>30.000 đ</strong> mỗi đơn hàng.</span>
+                    </div>
+
+                    <hr class="my-2">
+
+                    <div class="d-flex justify-content-between mb-4 align-items-center">
+                        <span class="fw-bold fs-6">Tổng tạm tính:</span>
+                        <span class="fw-bold text-danger fs-5 cart-total-val"
+                              th:text="${#numbers.formatDecimal(cart.subtotal != null ? cart.subtotal + 30000 : 30000, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                            0 đ
+                        </span>
+                    </div>
+
+                    <a th:href="@{/checkout}" class="btn btn-pet-primary w-100 py-3 fw-bold rounded-pill shadow-sm mb-3">
+                        <i class="bi bi-credit-card me-2"></i> Tiến Hành Đặt Hàng
+                    </a>
+
+                    <!-- Cam kết dịch vụ -->
+                    <div class="pt-2 border-top">
+                        <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                            <i class="bi bi-truck text-pet-primary"></i>
+                            <span>Giao hàng hỏa tốc trong 2 giờ nội thành</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                            <i class="bi bi-shield-lock text-success"></i>
+                            <span>Bảo mật thông tin thanh toán tuyệt đối</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 text-muted small">
+                            <i class="bi bi-arrow-repeat text-warning"></i>
+                            <span>Hỗ trợ đổi trả miễn phí trong 7 ngày</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div th:if="${cart == null or cart.items.empty}" class="text-center py-5">
-            <i class="bi bi-cart-x display-1 text-muted"></i>
-            <h4 class="mt-3">Giỏ hàng của bạn đang trống</h4>
-            <a th:href="@{/products}" class="btn btn-pet-primary mt-3">Tiếp Tục Mua Sắm</a>
+        <!-- Trạng thái trống (Empty State khi giỏ hàng rỗng) -->
+        <div th:if="${cart == null or cart.items.empty}" class="card border-0 shadow-sm rounded-4 p-5 text-center my-4 bg-white">
+            <div class="mb-3">
+                <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center p-4">
+                    <i class="bi bi-cart-x display-3 text-warning"></i>
+                </div>
+            </div>
+            <h4 class="fw-bold text-dark mb-2">Giỏ hàng của bạn đang trống</h4>
+            <p class="text-muted mb-4 col-md-6 mx-auto">
+                Không có sản phẩm nào trong giỏ hàng. Hãy khám phá ngay các món ăn hấp dẫn và đồ chơi bổ ích cho thú cưng của bạn!
+            </p>
+            <div class="mb-4">
+                <a th:href="@{/products}" class="btn btn-pet-primary rounded-pill px-5 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-cart-plus me-2"></i> Khám Phá Cửa Hàng Ngay
+                </a>
+            </div>
+
+            <!-- Gợi ý danh mục nổi bật tránh màn hình trống -->
+            <div class="border-top pt-4 mt-2">
+                <h6 class="text-muted fw-bold mb-3 text-uppercase small letter-spacing-1">Danh Mục Đang Bán Chạy</h6>
+                <div class="row g-3 justify-content-center">
+                    <div class="col-md-3 col-sm-6">
+                        <a th:href="@{/products(category='THUC-AN')}" class="category-suggest-card d-block p-3">
+                            <i class="bi bi-cup-hot-fill fs-3 text-pet-primary mb-2 d-block"></i>
+                            <div class="fw-bold text-dark small">Thức Ăn Thú Cưng</div>
+                            <small class="text-muted">Hạt Royal Canin, Pate Whiskas</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a th:href="@{/products(category='DO-CHOI')}" class="category-suggest-card d-block p-3">
+                            <i class="bi bi-controller fs-3 text-warning mb-2 d-block"></i>
+                            <div class="fw-bold text-dark small">Đồ Chơi Gặm & Dây Dắt</div>
+                            <small class="text-muted">Cao su dẻo an toàn</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <a th:href="@{/products(category='CAT-VE-SINH')}" class="category-suggest-card d-block p-3">
+                            <i class="bi bi-stars fs-3 text-info mb-2 d-block"></i>
+                            <div class="fw-bold text-dark small">Cát Vệ Sinh & Khử Mùi</div>
+                            <small class="text-muted">Cát Me-O thơm ngát</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<th:block layout:fragment="custom-js">
+    <script>
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+        }
+
+        // Trả về đúng trang trước đó (ví dụ trang Profile hoặc trang danh sách sản phẩm)
+        function goBackPreviousPage() {
+            if (document.referrer && document.referrer.indexOf(window.location.host) !== -1 && !document.referrer.endsWith('/cart')) {
+                window.location.href = document.referrer;
+            } else {
+                window.location.href = '/customer/profile';
+            }
+        }
+
+        function changeCartQty(btn, delta) {
+            const form = btn.closest('form');
+            if (!form) return;
+            const input = form.querySelector('.qty-input');
+            if (!input) return;
+
+            let currentVal = parseInt(input.value) || 1;
+            let minVal = parseInt(input.min) || 1;
+            let maxVal = input.max ? parseInt(input.max) : 999;
+
+            let newVal = currentVal + delta;
+            if (newVal < minVal) {
+                if (confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?')) {
+                    const row = btn.closest('tr');
+                    const removeForm = row ? row.querySelector('.remove-item-form') : null;
+                    if (removeForm) {
+                        removeForm.submit();
+                        return;
+                    }
+                }
+                return;
+            }
+            if (newVal > maxVal) {
+                alert('Số lượng đã đạt giới hạn tồn kho tối đa (' + maxVal + ')!');
+                return;
+            }
+
+            submitCartQtyAjax(form, newVal, currentVal);
+        }
+
+        function onQtyInputChange(input) {
+            const form = input.closest('form');
+            if (!form) return;
+            let newVal = parseInt(input.value) || 1;
+            let minVal = parseInt(input.min) || 1;
+            let maxVal = input.max ? parseInt(input.max) : 999;
+
+            if (newVal < minVal) newVal = minVal;
+            if (newVal > maxVal) {
+                alert('Số lượng đã đạt giới hạn tồn kho tối đa (' + maxVal + ')!');
+                newVal = maxVal;
+            }
+            submitCartQtyAjax(form, newVal, input.defaultValue || 1);
+        }
+
+        let isUpdatingCart = false;
+
+        function submitCartQtyAjax(form, newVal, oldVal) {
+            if (isUpdatingCart) return;
+            isUpdatingCart = true;
+
+            const input = form.querySelector('.qty-input');
+            const btnDec = form.querySelector('.btn-qty-dec');
+            const btnInc = form.querySelector('.btn-qty-inc');
+
+            if (input) input.value = newVal;
+
+            const formData = new FormData(form);
+            formData.set('quantity', newVal);
+
+            if (btnDec) btnDec.disabled = true;
+            if (btnInc) btnInc.disabled = true;
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || 'Cập nhật thất bại'); });
+                }
+                return response.json();
+            })
+            .then(cart => {
+                isUpdatingCart = false;
+                if (cart && cart.items) {
+                    cart.items.forEach(item => {
+                        const lineTotalEl = document.querySelector('.item-line-total[data-item-id="' + item.id + '"]');
+                        if (lineTotalEl) {
+                            lineTotalEl.textContent = formatMoney(item.lineTotal);
+                        }
+                        const row = document.getElementById('cart-row-' + item.id);
+                        if (row) {
+                            const rowInput = row.querySelector('.qty-input');
+                            const rowInc = row.querySelector('.btn-qty-inc');
+                            const rowDec = row.querySelector('.btn-qty-dec');
+                            if (rowInput) {
+                                rowInput.value = item.quantity;
+                                rowInput.defaultValue = item.quantity;
+                            }
+                            if (rowInc) {
+                                rowInc.disabled = (item.maxStock != null && item.quantity >= item.maxStock);
+                            }
+                            if (rowDec) {
+                                rowDec.disabled = false;
+                            }
+                        }
+                    });
+                }
+
+                // Cập nhật tổng tiền hàng & tổng tạm tính
+                const subtotalEl = document.querySelector('.cart-subtotal-val');
+                if (subtotalEl && cart.subtotal != null) {
+                    subtotalEl.textContent = formatMoney(cart.subtotal);
+                }
+                const totalEl = document.querySelector('.cart-total-val');
+                if (totalEl && cart.subtotal != null) {
+                    totalEl.textContent = formatMoney(Number(cart.subtotal) + 30000);
+                }
+
+                // Cập nhật badge giỏ hàng trên thanh điều hướng navbar
+                const badges = document.querySelectorAll('.cart-badge');
+                badges.forEach(b => {
+                    b.textContent = cart.totalQuantity;
+                });
+            })
+            .catch(err => {
+                isUpdatingCart = false;
+                alert(err.message || 'Có lỗi xảy ra khi cập nhật số lượng');
+                if (input) input.value = oldVal;
+                if (btnDec) btnDec.disabled = false;
+                if (btnInc) btnInc.disabled = false;
+            });
+        }
+    </script>
+</th:block>
 </body>
 </html>

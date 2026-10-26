@@ -1,0 +1,206 @@
+package com.petshop;
+
+import com.petshop.config.security.CustomUserDetails;
+import com.petshop.dto.catalog.ProductFormDto;
+import com.petshop.dto.stock.StockImportFormDto;
+import com.petshop.dto.stock.StockImportItemDto;
+import com.petshop.entity.*;
+import com.petshop.entity.enums.*;
+import com.petshop.repository.*;
+import com.petshop.service.*;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+// Deliberately no test transaction: templates must render with open-in-view disabled,
+// after service transactions have ended, as they do during a real request.
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:teamIntegration;DB_CLOSE_DELAY=-1;MODE=MSSQLServer;DATABASE_TO_UPPER=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+        "spring.jpa.open-in-view=false", "logging.level.org.hibernate.SQL=WARN"})
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class TeamIntegrationTests {
+    @MockBean EmailService mail;
+    @Autowired MockMvc mvc;
+    @Autowired RoleRepository roles;
+    @Autowired UserRepository users;
+    @Autowired CategoryRepository categories;
+    @Autowired BrandRepository brands;
+    @Autowired ProductRepository products;
+    @Autowired ProductVariantRepository variants;
+    @Autowired StockImportRepository receipts;
+    @Autowired ProductManageService productService;
+    @Autowired StockImportService imports;
+    @Autowired CartService carts;
+    @Autowired CatalogService catalog;
+    @Autowired PlatformTransactionManager transactionManager;
+    User admin, staff, customer;
+    Category category;
+    Product product;
+    ProductVariant variant;
+    String key;
+
+    @BeforeEach void fixture() {
+        key = UUID.randomUUID().toString();
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+            admin = account("ADMIN"); staff = account("STAFF"); customer = account("CUSTOMER");
+            category = categories.save(Category.builder().code(key).name("Food " + key).build());
+            product = products.save(Product.builder().category(category).createdBy(admin).name("Food " + key)
+                    .slug(key).petType(PetType.DOG).isFeatured(true).build());
+            variant = variants.save(ProductVariant.builder().product(product).skuCode(key).variantName("Small")
+                    .price(new BigDecimal("200000")).stockQuantity(10).build());
+        });
+    }
+
+    private User account(String code) {
+        Role role = roles.findByCode(code).orElseGet(() -> roles.save(Role.builder().code(code).name(code).build()));
+        return users.save(User.builder().role(role).fullName(code).email(code + key + "@integration.test")
+                .passwordHash("unused-password-hash").build());
+    }
+
+    @Test void allIntegratedPagesRenderOutsideServiceTransactions() throws Exception {
+        for (String path : List.of("/", "/products", "/products/" + key, "/about", "/contact", "/login")) {
+            mvc.perform(get(path)).andExpect(status().isOk());
+        }
+        for (String path : List.of("/admin/products", "/admin/products/create", "/admin/products/" + product.getId() + "/edit",
+                "/admin/categories", "/admin/categories/create", "/admin/brands", "/admin/reports/reviews")) {
+            mvc.perform(get(path).with(user(new CustomUserDetails(admin)))).andExpect(status().isOk());
+        }
+        for (String path : List.of("/staff/products", "/staff/products/create", "/staff/products/" + product.getId() + "/edit",
+                "/staff/products/" + product.getId() + "/variants", "/staff/products/low-stock",
+                "/staff/stock-imports", "/staff/stock-imports/create")) {
+            mvc.perform(get(path).with(user(new CustomUserDetails(staff)))).andExpect(status().isOk());
+        }
+        productService.deleteProduct(product.getId());
+        mvc.perform(get("/products/" + key)).andExpect(status().isNotFound());
+        assertTrue(productService.searchProducts(key, category.getId(), PageRequest.of(0, 10)).hasContent());
+        assertTrue(catalog.searchAndFilterProducts(com.petshop.dto.catalog.ProductFilterDto.builder().keyword(key).build(),
+                PageRequest.of(0, 10)).isEmpty());
+    }
+
+    @Test void staffAndAdminUseTheSameValidatedFormAndCannotOverwriteStock() throws Exception {
+        for (String base : List.of("/staff/products", "/admin/products")) {
+            User operator = base.startsWith("/staff") ? staff : admin;
+            String slug = base.contains("staff") ? "staff-" + key : "admin-" + key;
+            mvc.perform(post(base + "/create").with(user(new CustomUserDetails(operator)))
+                    .param("name", "Blocked")).andExpect(redirectedUrl("/error/403"));
+            mvc.perform(post(base + "/create").with(user(new CustomUserDetails(operator))).with(csrf())
+                    .param("name", "Created " + key).param("slug", slug).param("categoryId", category.getId().toString())
+                    .param("petType", "DOG").param("status", "ACTIVE")).andExpect(redirectedUrl(base));
+            Product created = products.findBySlug(slug).orElseThrow();
+            mvc.perform(post(base + "/" + created.getId() + "/edit").with(user(new CustomUserDetails(operator))).with(csrf())
+                    .param("name", "").param("slug", slug).param("categoryId", category.getId().toString())
+                    .param("petType", "DOG").param("status", "ACTIVE"))
+                    .andExpect(status().isOk()).andExpect(view().name("staff/product-form"))
+                    .andExpect(model().attributeHasFieldErrors("productForm", "name"));
+            assertEquals("Created " + key, products.findById(created.getId()).orElseThrow().getName());
+        }
+        var newSku = productService.addVariant(product.getId(), ProductVariant.builder().skuCode("new-" + key)
+                .variantName("Large").price(BigDecimal.TEN).stockQuantity(999).build());
+        assertEquals(0, newSku.getStockQuantity());
+        productService.updateVariant(variant.getId(), ProductVariant.builder().variantName("Updated")
+                .price(BigDecimal.TEN).lowStockThreshold(5).status(ProductVariantStatus.ACTIVE).stockQuantity(999).build());
+        assertEquals(10, variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test void stockDtoImportsPersistDetailsAndInvalidLinesRollBack() throws Exception {
+        StockImportFormDto form = StockImportFormDto.builder().supplierName("Supplier")
+                .items(List.of(StockImportItemDto.builder().variantId(variant.getId()).quantity(3).unitCost(BigDecimal.TEN).build())).build();
+        StockImport saved = imports.createStockImport(form, staff.getId());
+        assertEquals(13, variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+        assertEquals(1, imports.getStockImportDetail(saved.getId()).getItems().size());
+        mvc.perform(get("/staff/stock-imports/" + saved.getId()).with(user(new CustomUserDetails(staff))))
+                .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString(key)));
+        long before = receipts.count();
+        form.setItems(List.of(form.getItems().get(0), form.getItems().get(0)));
+        assertThrows(IllegalArgumentException.class, () -> imports.createStockImport(form, staff.getId()));
+        assertEquals(before, receipts.count());
+        assertEquals(13, variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test void cartSupportsAjaxAndRegularFormWithoutLosingStockRules() throws Exception {
+        var cart = carts.addItemToCart(customer.getId(), variant.getId(), 1);
+        String itemId = cart.getItems().get(0).getId().toString();
+        mvc.perform(post("/cart/update").with(user(new CustomUserDetails(customer))).with(csrf())
+                .header("X-Requested-With", "XMLHttpRequest").param("itemId", itemId).param("quantity", "3"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalQuantity").value(3));
+        mvc.perform(post("/cart/update").with(user(new CustomUserDetails(customer))).with(csrf())
+                .param("itemId", itemId).param("quantity", "2"))
+                .andExpect(redirectedUrl("/cart")).andExpect(flash().attributeExists("successMessage"));
+        mvc.perform(post("/cart/update").with(user(new CustomUserDetails(customer))).with(csrf())
+                .header("X-Requested-With", "XMLHttpRequest").param("itemId", itemId).param("quantity", "999"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").exists());
+        assertEquals(2, carts.getCartForUser(customer.getId()).getTotalQuantity());
+        mvc.perform(post("/cart/update").with(user(new CustomUserDetails(customer))).with(csrf())
+                .param("itemId", itemId).param("quantity", "0")).andExpect(redirectedUrl("/cart"));
+        assertEquals(0, carts.getCartForUser(customer.getId()).getTotalQuantity());
+        assertEquals(10, variants.findById(variant.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test void categoryWithoutParentAndBrandCrudRemainUsable() throws Exception {
+        mvc.perform(post("/admin/categories/create").with(user(new CustomUserDetails(admin))).with(csrf())
+                .param("code", "new-" + key).param("name", "New category").param("parentCategory.id", ""))
+                .andExpect(redirectedUrl("/admin/categories"));
+        Category created = categories.findByCode("new-" + key).orElseThrow();
+        assertNull(created.getParentCategory());
+        mvc.perform(post("/admin/categories/update/" + created.getId()).with(user(new CustomUserDetails(admin))).with(csrf())
+                .param("code", created.getCode()).param("name", created.getName()).param("parentCategory.id", created.getId().toString()))
+                .andExpect(redirectedUrl("/admin/categories/edit/" + created.getId())).andExpect(flash().attributeExists("errorMessage"));
+        assertNull(categories.findById(created.getId()).orElseThrow().getParentCategory());
+        mvc.perform(get("/admin/categories/edit/" + created.getId()).with(user(new CustomUserDetails(admin))))
+                .andExpect(status().isOk());
+        mvc.perform(post("/admin/brands/create").with(user(new CustomUserDetails(admin))).with(csrf())
+                .param("name", "Brand-" + key)).andExpect(redirectedUrl("/admin/brands"));
+        Brand brand = brands.findAll().stream().filter(b -> b.getName().equals("Brand-" + key)).findFirst().orElseThrow();
+        mvc.perform(post("/admin/brands/delete/" + brand.getId()).with(user(new CustomUserDetails(admin))).with(csrf()))
+                .andExpect(redirectedUrl("/admin/brands"));
+        assertFalse(brands.existsById(brand.getId()));
+    }
+
+    @Test void uploadedProductImagesAreServedFromTheRuntimeDirectory() throws Exception {
+        var buffer = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", buffer);
+        String slug = "image-" + key;
+        String imageUrl = null;
+        try {
+            mvc.perform(multipart("/staff/products/create")
+                    .file(new org.springframework.mock.web.MockMultipartFile("imageFiles", "product.png", "image/png", buffer.toByteArray()))
+                    .with(user(new CustomUserDetails(staff))).with(csrf())
+                    .param("name", "Uploaded image").param("slug", slug).param("categoryId", category.getId().toString())
+                    .param("petType", "DOG").param("status", "ACTIVE"))
+                    .andExpect(redirectedUrl("/staff/products"));
+            Product saved = products.findBySlug(slug).orElseThrow();
+            imageUrl = productService.findById(saved.getId()).getImages().iterator().next().getImageUrl();
+            assertTrue(imageUrl.matches("/uploads/products/[0-9a-f-]+\\.png"));
+            mvc.perform(get(imageUrl)).andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith("image/png"));
+        } finally {
+            if (imageUrl != null && imageUrl.matches("/uploads/products/[0-9a-f-]+\\.png")) {
+                java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(imageUrl.substring(1)));
+            }
+        }
+        mvc.perform(multipart("/staff/products/create")
+                .file(new org.springframework.mock.web.MockMultipartFile("imageFiles", "bad.png", "image/png", "not an image".getBytes()))
+                .with(user(new CustomUserDetails(staff))).with(csrf())
+                .param("name", "Rejected image").param("slug", "bad-" + key).param("categoryId", category.getId().toString())
+                .param("petType", "DOG").param("status", "ACTIVE"))
+                .andExpect(status().isOk()).andExpect(model().attributeExists("errorMessage"));
+        assertFalse(products.existsBySlug("bad-" + key));
+    }
+}

@@ -42,6 +42,7 @@ public class CartServiceImpl implements CartService {
         return mapToDto(cart);
     }
 
+    //tồn 5, add 10 -> add 5
     @Override
     @Transactional
     public CartDto addItemToCart(Long userId, Long variantId, int quantity) {
@@ -53,7 +54,7 @@ public class CartServiceImpl implements CartService {
         ProductVariant variant = variantRepository.findById(variantId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy biến thể sản phẩm: " + variantId));
 
-        if (variant.getStatus() != ProductVariantStatus.ACTIVE) {
+        if (variant.getStatus() != ProductVariantStatus.ACTIVE || variant.getProduct().getStatus() != com.petshop.entity.enums.ProductStatus.ACTIVE) {
             throw new IllegalArgumentException("Sản phẩm hiện đang tạm dừng bán.");
         }
 
@@ -73,14 +74,14 @@ public class CartServiceImpl implements CartService {
                     .build();
             cartItemRepository.save(item);
         } else {
-            int newQuantity = item.getQuantity() + quantity;
-            if (newQuantity > variant.getStockQuantity()) {
-                newQuantity = variant.getStockQuantity();
-            }
+            if (variant.getStockQuantity() <= 0) throw new IllegalArgumentException("Sản phẩm đã hết hàng.");
+            long requested = (long)item.getQuantity() + quantity;
+            if (requested > variant.getStockQuantity()) throw new IllegalArgumentException("Trong giỏ đã có " + item.getQuantity() + " sản phẩm. Kho hiện chỉ còn " + variant.getStockQuantity() + ".");
+            int newQuantity = (int)requested;
+
             item.setQuantity(newQuantity);
             cartItemRepository.save(item);
         }
-
         return getCartForUser(userId);
     }
 
@@ -97,11 +98,25 @@ public class CartServiceImpl implements CartService {
 
         if (newQuantity <= 0) {
             cartItemRepository.delete(item);
-        } else {
-            int allowed = Math.min(newQuantity, item.getVariant().getStockQuantity());
-            item.setQuantity(allowed);
-            cartItemRepository.save(item);
+            return getCartForUser(userId);
         }
+
+        ProductVariant variant = item.getVariant();
+
+        if (variant.getStatus() != ProductVariantStatus.ACTIVE || variant.getProduct().getStatus() != com.petshop.entity.enums.ProductStatus.ACTIVE) {
+            throw new IllegalArgumentException("Sản phẩm hiện đang tạm dừng bán.");
+        }
+
+        if (variant.getStockQuantity() <= 0) {
+            throw new IllegalArgumentException("Sản phẩm hiện đã hết hàng.");
+        }
+
+        if (newQuantity > variant.getStockQuantity()) {
+            throw new IllegalArgumentException("Chỉ còn " + variant.getStockQuantity() + " sản phẩm trong kho.");
+        }
+
+        item.setQuantity(newQuantity);
+        cartItemRepository.save(item);
 
         return getCartForUser(userId);
     }
@@ -139,12 +154,23 @@ public class CartServiceImpl implements CartService {
     }
 
     private Cart getOrCreateCart(Long userId) {
+        userRepository.findByIdForUpdate(userId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
         return cartRepository.findByUserId(userId).orElseGet(() -> {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản người dùng: " + userId));
             Cart newCart = Cart.builder().user(user).build();
             return cartRepository.save(newCart);
         });
+    }
+
+    @Override
+    @Transactional
+    public void selectItem(Long userId, Long itemId, boolean selected) {
+        Cart cart = getOrCreateCart(userId);
+        CartItem item = cartItemRepository.findById(itemId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mục trong giỏ."));
+        if (!item.getCart().getId().equals(cart.getId())) throw new IllegalArgumentException("Bạn không có quyền chỉnh sửa mục này.");
+        item.setIsSelected(selected);
+        cartItemRepository.save(item);
     }
 
     private CartDto mapToDto(Cart cart) {

@@ -56,9 +56,9 @@
                             </label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" th:field="*{paymentMethod}" value="VNPAY" id="payVNPAY">
+                            <input class="form-check-input" type="radio" th:field="*{paymentMethod}" value="VNPAY" id="payVNPAY" disabled>
                             <label class="form-check-label" for="payVNPAY">
-                                <strong>VNPay</strong> — Cổng thanh toán trực tuyến (Sandbox)
+                                <strong>VNPay</strong> — Sắp hỗ trợ thanh toán trực tuyến
                             </label>
                         </div>
                     </div>
@@ -68,7 +68,7 @@
                     <div class="card border-0 shadow-sm rounded-4 p-4">
                         <h5 class="fw-bold mb-3">Tóm Tắt Đơn Hàng</h5>
                         <ul class="list-group list-group-flush mb-3">
-                            <li th:each="item : ${cart.items}" class="list-group-item d-flex justify-content-between px-0">
+                            <li th:each="item : ${cart.items}" th:if="${item.isSelected}" class="list-group-item d-flex justify-content-between px-0">
                                 <div>
                                     <h6 class="my-0" th:text="${item.productName + ' (' + item.variantName + ')'}">Sản phẩm</h6>
                                     <small class="text-muted" th:text="${'SL: ' + item.quantity + ' x ' + #numbers.formatDecimal(item.unitPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}"></small>
@@ -78,22 +78,33 @@
                         </ul>
 
                         <div class="mb-3">
-                            <label class="form-label small">Mã giảm giá (Voucher):</label>
-                            <input type="text" class="form-control" th:field="*{voucherCode}" placeholder="PETWELCOME10">
+                            <label class="form-label small fw-semibold">Mã giảm giá (Voucher):</label>
+                            <div class="input-group">
+                                <input type="text" id="voucherCodeInput" class="form-control text-uppercase font-monospace"
+                                       th:field="*{voucherCode}" placeholder="VD: PETWELCOME10">
+                                <button type="button" id="btnApplyVoucher" class="btn btn-outline-primary fw-semibold">
+                                    Áp Dụng
+                                </button>
+                            </div>
+                            <div id="voucherFeedback" class="small mt-1"></div>
                         </div>
 
                         <div class="d-flex justify-content-between mb-2">
                             <span>Tạm tính:</span>
                             <span th:text="${#numbers.formatDecimal(cart.subtotal, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
                         </div>
+                        <div id="voucherDiscountRow" class="d-flex justify-content-between mb-2 text-success fw-semibold" style="display: none !important;">
+                            <span>Giảm giá voucher:</span>
+                            <span id="voucherDiscountText">-0 đ</span>
+                        </div>
                         <div class="d-flex justify-content-between mb-2 text-muted">
                             <span>Phí ship:</span>
-                            <span>30.000 đ</span>
+                            <span th:text="${#numbers.formatDecimal(shippingFee, 0, 'COMMA', 0, 'POINT') + ' đ'}"></span>
                         </div>
                         <hr>
                         <div class="d-flex justify-content-between mb-4">
                             <strong>Tổng cộng:</strong>
-                            <strong class="text-danger fs-5" th:text="${#numbers.formatDecimal(cart.subtotal + 30000, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
+                            <strong id="finalTotalText" class="text-danger fs-5" th:text="${#numbers.formatDecimal(cart.subtotal + shippingFee, 0, 'COMMA', 0, 'POINT') + ' đ'}"></strong>
                         </div>
                         <button type="submit" class="btn btn-pet-primary w-100 py-3 fw-bold">Xác Nhận Đặt Hàng</button>
                     </div>
@@ -102,5 +113,77 @@
         </form>
     </div>
 </div>
+
+<th:block layout:fragment="custom-js">
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnApply = document.getElementById('btnApplyVoucher');
+        const inputCode = document.getElementById('voucherCodeInput');
+        const feedback = document.getElementById('voucherFeedback');
+        const discountRow = document.getElementById('voucherDiscountRow');
+        const discountText = document.getElementById('voucherDiscountText');
+        const finalTotalText = document.getElementById('finalTotalText');
+        const baseSubtotal = /*[[${cart.subtotal}]]*/ 0;
+        const shippingFee = /*[[${shippingFee}]]*/ 0;
+
+        btnApply.addEventListener('click', function() {
+            const code = inputCode.value.trim();
+            if (!code) {
+                feedback.className = 'small text-danger mt-1';
+                feedback.textContent = 'Vui lòng nhập mã giảm giá trước khi áp dụng.';
+                return;
+            }
+
+            btnApply.disabled = true;
+            btnApply.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Đang kiểm tra...';
+
+            const formData = new FormData();
+            formData.append('code', code);
+
+            // Get CSRF token if present
+            const csrfToken = document.querySelector('input[name="_csrf"]')?.value;
+            if (csrfToken) {
+                formData.append('_csrf', csrfToken);
+            }
+
+            fetch('/checkout/apply-voucher', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                btnApply.disabled = false;
+                btnApply.textContent = 'Áp Dụng';
+
+                if (data.valid) {
+                    feedback.className = 'small text-success mt-1 fw-semibold';
+                    feedback.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>' + data.message;
+
+                    // Show discount
+                    discountRow.style.removeProperty('display');
+                    discountText.textContent = '-' + new Intl.NumberFormat('vi-VN').format(data.discountAmount) + ' đ';
+
+                    // Update total
+                    const newTotal = Number(data.finalTotal) + shippingFee;
+                    finalTotalText.textContent = new Intl.NumberFormat('vi-VN').format(newTotal) + ' đ';
+                } else {
+                    feedback.className = 'small text-danger mt-1';
+                    feedback.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i>' + data.message;
+
+                    discountRow.style.setProperty('display', 'none', 'important');
+                    const origTotal = Number(baseSubtotal) + shippingFee;
+                    finalTotalText.textContent = new Intl.NumberFormat('vi-VN').format(origTotal) + ' đ';
+                }
+            })
+            .catch(err => {
+                btnApply.disabled = false;
+                btnApply.textContent = 'Áp Dụng';
+                feedback.className = 'small text-danger mt-1';
+                feedback.textContent = 'Lỗi kết nối máy chủ khi kiểm tra voucher.';
+            });
+        });
+    });
+</script>
+</th:block>
 </body>
 </html>
