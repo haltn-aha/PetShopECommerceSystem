@@ -24,6 +24,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Optional<Product> findById(Long id);
     Optional<Product> findBySlug(String slug);
     boolean existsBySlug(String slug);
+    boolean existsByBrand_Id(Integer brandId);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"category", "brand"})
+    Page<Product> findAll(org.springframework.data.jpa.domain.Specification<Product> spec, Pageable pageable);
 
     Page<Product> findByStatus(ProductStatus status, Pageable pageable);
     Page<Product> findByStatusAndIsFeaturedTrue(ProductStatus status, Pageable pageable);
@@ -42,7 +47,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query(value = "SELECT p FROM Product p " +
             "LEFT JOIN FETCH p.category " +
             "LEFT JOIN FETCH p.brand " +
-            "LEFT JOIN FETCH p.images " +
             "WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED",
             countQuery = "SELECT COUNT(p) FROM Product p WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED")
     Page<Product> findAllWithDetails(Pageable pageable);

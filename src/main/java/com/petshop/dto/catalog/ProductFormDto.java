@@ -54,6 +54,7 @@ public class ProductFormDto {
     @NotNull(message = "Vui lòng chọn trạng thái")
     private ProductStatus status;
 
+    @Builder.Default
     private Boolean isFeatured = false;
 
     // FIELDS FOR IMAGE UPLOAD

@@ -34,6 +34,7 @@ public class ProductVariantFormDto {
 
     @NotNull(message = "Ngưỡng cảnh báo không được để trống")
     @Min(value = 0, message = "Ngưỡng cảnh báo phải >= 0")
+    @Builder.Default
     private Integer lowStockThreshold = 5;
 
     @NotNull(message = "Vui lòng chọn trạng thái")

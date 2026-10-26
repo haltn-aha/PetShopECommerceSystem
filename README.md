@@ -4,7 +4,9 @@
 > **Môn học / Course**: SWP391 — FPT University  
 > **Nhóm thực hiện / Team**: 5 sinh viên (SE2003 - Group 03)  
 > **Kiến trúc / Architecture**: Monolithic Server-Side Rendering (SSR) Spring Boot 3.3.4 MVC + Thymeleaf Layout Dialect + Spring Security 6  
-> **Cơ sở dữ liệu / Database**: Microsoft SQL Server 2019+ (`PetShopDB`, 20 bảng, 4 views)  
+> **Cơ sở dữ liệu / Database**: Microsoft SQL Server 2019+ (`PetShopDB`, 21 bảng, 4 views)
+
+Bản gộp nhóm ngày 26/10/2026: xem [hướng dẫn nhận source và kiểm thử](docs/DEV_INTEGRATION_20261026.md). Với database đã có dữ liệu, dùng [script đồng bộ tăng dần](database/sync_existing/README.md); không chạy lại bootstrap để cập nhật.
 
 ---
 

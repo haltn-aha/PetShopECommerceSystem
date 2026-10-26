@@ -32,14 +32,22 @@ public class ProductManageController {
     private final ProductManageService productManageService;
     private final CatalogService catalogService;
 
+    @ModelAttribute("productBasePath")
+    public String productBasePath() { return "/staff/products"; }
+
     // ============ PRODUCT LIST ============
     @GetMapping
     public String listProducts(@RequestParam(defaultValue = "0") int page,
                                @RequestParam(defaultValue = "10") int size,
+                               @RequestParam(required = false) String keyword,
+                               @RequestParam(required = false) Integer categoryId,
                                Model model) {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(100, size)));
-        Page<Product> products = productManageService.getProducts(pageable);
+        Page<Product> products = productManageService.searchProducts(keyword, categoryId, pageable);
         model.addAttribute("products", products);
+        model.addAttribute("keyword", keyword);
+        model.addAttribute("selectedCategoryId", categoryId);
+        model.addAttribute("categories", catalogService.getAllCategories());
         return "staff/product-list";
     }
 
@@ -97,6 +105,7 @@ public class ProductManageController {
                                 BindingResult bindingResult,
                                 Model model,
                                 RedirectAttributes redirectAttributes) {
+        form.setId(id);
         if (bindingResult.hasErrors()) {
             model.addAttribute("categories", catalogService.getAllCategories());
             model.addAttribute("brands", catalogService.getAllBrands());
@@ -126,6 +135,13 @@ public class ProductManageController {
     }
 
     // ============ MANAGE VARIANTS ============
+    @PostMapping("/{id}/delete")
+    public String deleteProduct(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        productManageService.deleteProduct(id);
+        redirectAttributes.addFlashAttribute("successMessage", "Đã ẩn sản phẩm. Lịch sử đơn hàng và tồn kho được giữ lại.");
+        return "redirect:/staff/products";
+    }
+
     @GetMapping("/{id}/variants")
     public String manageVariants(@PathVariable Long id, Model model) {
         Product product = productManageService.findById(id);
@@ -150,6 +166,7 @@ public class ProductManageController {
     public String editVariantForm(@PathVariable Long id, @PathVariable Long vid, Model model) {
         Product product = productManageService.findById(id);
         ProductVariant variant = productManageService.findVariantById(vid);
+        if (!variant.getProduct().getId().equals(id)) throw new IllegalArgumentException("SKU không thuộc sản phẩm này.");
 
         ProductVariantFormDto form = ProductVariantFormDto.builder()
                 .id(variant.getId())
@@ -206,6 +223,9 @@ public class ProductManageController {
         }
 
         try {
+            if (!productManageService.findVariantById(vid).getProduct().getId().equals(productId)) {
+                throw new IllegalArgumentException("SKU không thuộc sản phẩm này.");
+            }
             ProductVariant variant = form.toEntity();
             productManageService.updateVariant(vid, variant);
             redirectAttributes.addFlashAttribute("successMessage", "Cập nhật biến thể thành công!");

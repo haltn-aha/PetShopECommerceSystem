@@ -12,7 +12,7 @@
         <h4 class="page-title" th:text="${productForm.id != null ? 'Chỉnh Sửa Sản Phẩm' : 'Thêm Sản Phẩm Mới'}">
             Sản Phẩm
         </h4>
-        <a th:href="@{/staff/products}" class="btn btn-outline-secondary">
+        <a th:href="@{${productBasePath}}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Quay lại
         </a>
     </div>
@@ -26,7 +26,7 @@
 
     <div class="card border-0 shadow-sm rounded-4 p-4">
         <!-- IMPORTANT: Must have enctype for file upload -->
-        <form th:action="${productForm.id != null ? '/staff/products/' + productForm.id + '/edit' : '/staff/products/create'}"
+        <form th:action="${productForm.id != null ? productBasePath + '/' + productForm.id + '/edit' : productBasePath + '/create'}"
               th:object="${productForm}" method="post" enctype="multipart/form-data">
 
             <div class="row g-4">

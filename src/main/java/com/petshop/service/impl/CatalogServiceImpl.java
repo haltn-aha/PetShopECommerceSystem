@@ -42,7 +42,8 @@ public class CatalogServiceImpl implements CatalogService {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank())
-                predicates.add(cb.like(cb.lower(root.get("name")), "%" + filter.getKeyword().trim().toLowerCase() + "%"));
+                predicates.add(cb.or(cb.like(cb.lower(root.get("name")), "%" + filter.getKeyword().trim().toLowerCase(java.util.Locale.ROOT) + "%"),
+                        cb.like(cb.lower(root.get("shortDescription")), "%" + filter.getKeyword().trim().toLowerCase(java.util.Locale.ROOT) + "%")));
             if (filter.getPetType() != null) predicates.add(cb.equal(root.get("petType"), filter.getPetType()));
             if (filter.getBrandId() != null) predicates.add(cb.equal(root.get("brand").get("id"), filter.getBrandId()));
             if (filter.getCategoryId() != null || (filter.getCategoryCode() != null && !filter.getCategoryCode().isBlank())) {
@@ -60,6 +61,8 @@ public class CatalogServiceImpl implements CatalogService {
             if (query.getResultType() != Long.class && query.getResultType() != long.class) {
                 if ("price_asc".equals(filter.getSortBy())) query.orderBy(cb.asc(priceQuery), cb.asc(root.get("id")));
                 else if ("price_desc".equals(filter.getSortBy())) query.orderBy(cb.desc(priceQuery), cb.asc(root.get("id")));
+                else if ("asc".equals(filter.getSortBy())) query.orderBy(cb.asc(root.get("name")), cb.asc(root.get("id")));
+                else if ("desc".equals(filter.getSortBy())) query.orderBy(cb.desc(root.get("name")), cb.asc(root.get("id")));
                 else query.orderBy(cb.desc(root.get("createdAt")), cb.desc(root.get("id")));
             }
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
@@ -96,6 +99,7 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<ProductSummaryDto> getFeaturedProducts(int limit) {
+        if (limit <= 0) return List.of();
         Pageable pageable = PageRequest.of(0, limit);
         Page<Product> featured = productRepository.findByStatusAndIsFeaturedTrue(ProductStatus.ACTIVE, pageable);
         return featured.getContent().stream()
@@ -138,11 +142,24 @@ public class CatalogServiceImpl implements CatalogService {
                 .brandName(product.getBrand() != null ? product.getBrand().getName() : "")
                 .petType(product.getPetType())
                 .primaryImageUrl(primaryImageUrl)
+                .imageUrl(primaryImageUrl)
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .totalStock(totalStock)
                 .avgRating(avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount != null ? reviewCount : 0L)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> filterProducts(String keyword, Long categoryId, Pageable pageable) {
+        return productRepository.findAll((root, query, cb) -> {
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            predicates.add(cb.equal(root.get("status"), ProductStatus.ACTIVE));
+            if (keyword != null && !keyword.isBlank()) predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
+            if (categoryId != null) predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        }, pageable);
     }
 }

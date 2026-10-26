@@ -38,7 +38,27 @@ public class ProductManageServiceImpl implements ProductManageService {
     @Override
     @Transactional(readOnly = true)
     public Page<Product> getProducts(Pageable pageable) {
-        return productRepository.findAllWithDetails(pageable);
+        return searchProducts(null, null, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Product> searchProducts(String keyword, Integer categoryId, Pageable pageable) {
+        return productRepository.findAll((root, query, cb) -> {
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            if (keyword != null && !keyword.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("name")), "%" + keyword.trim().toLowerCase(java.util.Locale.ROOT) + "%"));
+            }
+            if (categoryId != null) predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        }, pageable);
+    }
+
+    @Override
+    @Transactional
+    public void deleteProduct(Long id) {
+        // Preserve order, review and stock history; deletion only hides the product.
+        toggleProductStatus(id, ProductStatus.HIDDEN);
     }
 
     @Override

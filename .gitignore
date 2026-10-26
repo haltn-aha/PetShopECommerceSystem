@@ -78,3 +78,4 @@ yarn-error.log*
 
 # User-uploaded runtime data
 uploads/avatars/
+uploads/products/

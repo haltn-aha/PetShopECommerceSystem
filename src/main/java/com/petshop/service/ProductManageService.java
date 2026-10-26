@@ -15,6 +15,8 @@ import java.util.List;
 public interface ProductManageService {
 
     Page<Product> getProducts(Pageable pageable);
+    Page<Product> searchProducts(String keyword, Integer categoryId, Pageable pageable);
+    void deleteProduct(Long id);
     Product findById(Long id);
     Product createProduct(ProductFormDto form, Long staffId);
     Product updateProduct(Long id, ProductFormDto form, Long staffId);
