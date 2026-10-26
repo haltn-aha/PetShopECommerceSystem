@@ -15,6 +15,8 @@ import java.util.Optional;
 @Repository
 public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     Optional<Voucher> findByCode(String code);
+    @Query("SELECT v.id FROM Voucher v WHERE v.code = :code")
+    Optional<Long> findIdByCode(@Param("code") String code);
 
     org.springframework.data.domain.Page<Voucher> findByIsDeletedFalse(org.springframework.data.domain.Pageable pageable);
 

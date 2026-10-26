@@ -16,6 +16,9 @@ import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer"})
+    Page<Order> findAll(org.springframework.data.jpa.domain.Specification<Order> spec, Pageable pageable);
     Optional<Order> findByOrderCode(String orderCode);
 
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id IN :ids")

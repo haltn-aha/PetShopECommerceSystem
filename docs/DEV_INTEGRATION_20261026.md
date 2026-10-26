@@ -13,6 +13,7 @@ Gộp các nhánh đang có trên remote vào một bản chung, giữ lịch s�
 | hantgce201539-ops-patch-1 | 6dc70f1 | Quy tắc cập nhật giỏ hàng |
 | hantgce201539-ops-patch-2 | 5d1614b | Thông báo và phản hồi giỏ hàng |
 | home-page-Vy | 91c6bae | Giao diện, catalog, tìm kiếm/lọc, danh mục, thương hiệu, quản lý sản phẩm Admin |
+| feature/cart-checkout | 3c15ee6 | Cập nhật trên remote sau đợt gộp đầu: chọn dòng giỏ hàng, checkout, lịch sử đơn và VNPay Sandbox |
 
 Nhánh home-page-Vy có lịch sử Git độc lập. Bản gộp giữ nó làm merge parent, đối chiếu thay đổi nội dung với cây source nền d0c3d68 để tránh đưa lại toàn bộ mã nền cũ.
 
@@ -30,13 +31,22 @@ Nhánh home-page-Vy có lịch sử Git độc lập. Bản gộp giữ nó làm
 
 ## Kiểm chứng
 
-- Maven `verify`: 67 test đạt, không failure/error; tạo được JAR.
+- Đợt gộp đầu vào dev qua PR #7: 67 test đạt. Sau khi feature/cart-checkout xuất hiện, bản tích hợp tiếp được build sạch ngày 27/10 bằng Maven `clean verify`: 174 test đạt, không failure/error; tạo được JAR.
 - 6 test tích hợp mới chạy với open-in-view tắt và không dùng transaction bao quanh test: render trang, form Admin/Staff, nhập kho, giỏ AJAX/form, danh mục/thương hiệu, upload ảnh và rollback ảnh không hợp lệ.
-- SQL Server: 38 kiểm tra hồi quy và 7 kiểm tra riêng Stock/SKU đạt. Bao gồm nhập kho đồng thời, nhập kho cùng lúc checkout, giữ tồn khi sửa SKU và hoàn tồn khi hủy. View đối chiếu tồn không có chênh lệch sau kiểm thử.
+- SQL Server: 38 kiểm tra hồi quy, 7 kiểm tra riêng Stock/SKU và 12 kiểm tra vòng đời VNPay đạt. Bao gồm nhập kho đồng thời, nhập kho cùng lúc checkout, giữ tồn khi sửa SKU và hoàn tồn khi hủy; chữ ký sai, IPN thành công/hủy/lặp, callback đến muộn và xử lý hết hạn. View đối chiếu tồn không có chênh lệch sau kiểm thử. VNPay được kiểm tra bằng merchant/chữ ký giả lập nội bộ, không gọi gateway thật.
 - Script đồng bộ ba cột: 6 kiểm tra trên database fixture riêng đạt, gồm chạy lại không trùng và giữ dữ liệu cũ.
 - Kiểm thử SQL chỉ dùng database PetShop_FixTest_* / PetShop_SyncTest_* riêng. Không chạy DDL/DML trên PetShopDB đang dùng; không gửi email thật trong đợt kiểm thử này.
 
 Các kiểm tra trên xác nhận phạm vi đã chạy, không thay thế kiểm thử chấp nhận toàn bộ nghiệp vụ của từng thành viên.
+
+### Các điểm nối thêm cho feature/cart-checkout
+
+- Giữ authentication, email xác nhận và reset mật khẩu của Bảo; không đưa lại JWT login filter. Test CSRF của nhánh checkout được đổi sang dùng session/header thực tế, giữ kiểm tra thiếu token bị chặn.
+- Giữ API JSON chọn dòng/cập nhật số lượng và giao diện checkout/lịch sử đơn của Hân. Route /cart/update cũ vẫn hỗ trợ form/AJAX để tương thích; API mới yêu cầu số lượng nguyên dương, xóa qua route riêng.
+- Nối lại markCustomerVoucherUsed/restoreCustomerVoucher để checkout và hủy thanh toán giữ đúng trạng thái ví cùng quota. Giữ kiểm tra tài khoản CUSTOMER/ACTIVE và khóa customer/cart trong checkout.
+- Dùng chung ShippingFeeConfig cho giỏ, quote và đơn hàng; không để phí preview lệch phí lưu. Nạp dòng đơn theo danh sách ID của trang để render sau khi transaction đóng.
+- Sửa fixture test để tài khoản có role và trạng thái hợp lệ với bộ kiểm tra phiên, dùng database test riêng; sửa câu SQL test dùng schema dbo và khoảng trắng đơn vị tiền trên giao diện. Không tắt kiểm tra bảo mật hoặc bỏ bài test để đạt kết quả.
+- Cấu hình tùy chọn VNPAY_TMN_CODE, VNPAY_HASH_SECRET, VNPAY_RETURN_URL chỉ lấy từ môi trường/cấu hình riêng. Thiếu merchant hợp lệ thì giao diện không cho chọn VNPay và bước đặt thanh toán bị chặn trước khi tạo đơn. Chưa thử kết nối merchant thật.
 
 ## Nhận source và database
 

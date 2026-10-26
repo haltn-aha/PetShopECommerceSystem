@@ -53,6 +53,7 @@ class RegressionTests {
     @Autowired UserService userService;
     @Autowired VoucherService voucherService;
     @Autowired OrderService orderService;
+    @Autowired CheckoutPlacementService placementService;
     @Autowired CartService carts;
     @Autowired CatalogService catalog;
     @Autowired StockImportService imports;
@@ -446,7 +447,7 @@ class RegressionTests {
     }
     @Test void unavailableVnpayCannotCreateFalseSuccessOrder() {
         carts.addItemToCart(customer.getId(),variant.getId(),1);var form=checkout();form.setPaymentMethod(PaymentMethod.VNPAY);
-        assertThrows(IllegalArgumentException.class,()->orderService.checkoutOrder(customer.getId(),form));
+        assertThrows(IllegalStateException.class,()->placementService.place(customer.getId(),form,"127.0.0.1"));
         assertEquals(0,orders.count());assertEquals(10,variants.findById(variant.getId()).orElseThrow().getStockQuantity());
     }
     @Test void stockImportRequiresItemsAndProductVariantStartsAtZero() {
