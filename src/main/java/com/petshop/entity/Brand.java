@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  * Mapped to table dbo.Brands.
  */
 @Entity
-@Table(name = "Brands", schema = "dbo")
+@Table(name = "Brands")
 @Getter
 @Setter
 @NoArgsConstructor
