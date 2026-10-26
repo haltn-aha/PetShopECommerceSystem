@@ -33,11 +33,18 @@ public class StockImportServiceImpl implements StockImportService {
     @Override
     @Transactional
     public StockImport createStockImport(StockImport stockImport, List<StockImportItem> items, Long staffId) {
+        if (items == null || items.isEmpty()) throw new IllegalArgumentException("Phiếu nhập phải có sản phẩm.");
+        for (StockImportItem item : items) {
+            if (item.getVariant() == null || item.getVariant().getId() == null || item.getQuantity() == null || item.getQuantity() < 1
+                    || item.getUnitCost() == null || item.getUnitCost().signum() < 0) {
+                throw new IllegalArgumentException("Sản phẩm, số lượng và giá nhập không hợp lệ.");
+            }
+        }
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại: " + staffId));
 
         if (stockImport.getImportCode() == null || stockImport.getImportCode().isBlank()) {
-            stockImport.setImportCode("IMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+            stockImport.setImportCode("IMP-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-" + java.util.UUID.randomUUID().toString().substring(0, 8));
         }
 
         stockImport.setCreatedBy(staff);

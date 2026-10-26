@@ -15,6 +15,13 @@ import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"category", "brand"})
+    Page<Product> findAll(Pageable pageable);
+
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"category", "brand", "variants"})
+    Optional<Product> findById(Long id);
     Optional<Product> findBySlug(String slug);
     boolean existsBySlug(String slug);
 
@@ -29,6 +36,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
            "LEFT JOIN FETCH p.variants v " +
            "LEFT JOIN FETCH p.category " +
            "LEFT JOIN FETCH p.brand " +
-           "WHERE p.slug = :slug AND p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED")
+           "WHERE p.slug = :slug AND p.status = com.petshop.entity.enums.ProductStatus.ACTIVE")
     Optional<Product> findDetailedBySlug(@Param("slug") String slug);
 }

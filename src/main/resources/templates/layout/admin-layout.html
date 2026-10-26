@@ -16,8 +16,8 @@
     <style>
         :root {
             --sidebar-width: 260px;
-            --portal-dark: #0f172a;
-            --portal-hover: #1e293b;
+            --portal-dark: #134e4a;
+            --portal-hover: #115e59;
             --portal-active: #0d9488;
         }
         body {
@@ -28,7 +28,7 @@
             width: var(--sidebar-width);
             min-height: 100vh;
             background-color: var(--portal-dark);
-            color: #94a3b8;
+            color: #99f6e4;
             position: fixed;
             top: 0;
             left: 0;
@@ -46,14 +46,14 @@
             font-size: 1.25rem;
             font-weight: 700;
             color: #ffffff;
-            border-bottom: 1px solid #334155;
+            border-bottom: 1px solid #0f766e;
         }
         .sidebar-heading {
             padding: 0.75rem 1.5rem 0.25rem;
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #64748b;
+            color: #5eead4;
             font-weight: 700;
         }
         .sidebar-nav a {
@@ -135,13 +135,22 @@
                 <a th:href="@{/admin/vouchers}">
                     <i class="bi bi-ticket-perforated"></i> Khuyến Mãi (Voucher)
                 </a>
+                <a th:href="@{/admin/reviews}">
+                    <i class="bi bi-chat-square-quote"></i> Kiểm Duyệt Đánh Giá
+                </a>
                 <a th:href="@{/admin/reports/revenue}">
                     <i class="bi bi-cash-stack"></i> Báo Cáo Doanh Thu
                 </a>
                 <a th:href="@{/admin/reports/stock}">
                     <i class="bi bi-check2-circle text-success"></i> Đối Chiếu Tồn Kho
                 </a>
+            <a th:href="@{/admin/reports/reviews}" class="nav-link"><i class="bi bi-star me-2"></i>Báo cáo đánh giá</a>
             </th:block>
+
+            <div class="sidebar-heading mt-2">Tài Khoản</div>
+            <a th:href="@{/staff/profile}">
+                <i class="bi bi-person-badge"></i> Hồ Sơ Cá Nhân
+            </a>
 
             <div class="sidebar-heading mt-2">Liên Kết Nhanh</div>
             <a th:href="@{/}" target="_blank">
@@ -157,9 +166,11 @@
             <h6 class="m-0 text-secondary" layout:fragment="admin-header-title">Trang Quản Lý</h6>
             
             <div class="d-flex align-items-center gap-3">
-                <span class="text-muted small">SWP391 PetShop</span>
-                <form th:action="@{/logout}" method="post" class="m-0">
-                    <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1">
+                <a th:href="@{/staff/profile}" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 rounded-pill px-3">
+                    <i class="bi bi-person-circle"></i> Hồ Sơ Cá Nhân
+                </a>
+                <form th:action="@{/logout}" method="post" class="m-0" onsubmit="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 rounded-pill px-3">
                         <i class="bi bi-box-arrow-right"></i> Đăng Xuất
                     </button>
                 </form>
