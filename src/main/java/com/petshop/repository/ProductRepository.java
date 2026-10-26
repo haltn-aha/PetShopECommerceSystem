@@ -38,4 +38,13 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
            "LEFT JOIN FETCH p.brand " +
            "WHERE p.slug = :slug AND p.status = com.petshop.entity.enums.ProductStatus.ACTIVE")
     Optional<Product> findDetailedBySlug(@Param("slug") String slug);
+
+    @Query(value = "SELECT p FROM Product p " +
+            "LEFT JOIN FETCH p.category " +
+            "LEFT JOIN FETCH p.brand " +
+            "LEFT JOIN FETCH p.images " +
+            "WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED",
+            countQuery = "SELECT COUNT(p) FROM Product p WHERE p.status <> com.petshop.entity.enums.ProductStatus.DISCONTINUED")
+    Page<Product> findAllWithDetails(Pageable pageable);
+
 }

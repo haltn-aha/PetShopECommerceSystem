@@ -7,36 +7,80 @@
 </head>
 <body>
 <div layout:fragment="admin-content">
+    <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold mb-0">Quản Lý Sản Phẩm</h4>
-        <a th:href="@{/staff/products/create}" class="btn btn-pet-primary"><i class="bi bi-plus-lg me-1"></i>Thêm Sản Phẩm</a>
+        <h4 class="page-title">
+            Quản Lý Sản Phẩm
+        </h4>
+        <a th:href="@{/staff/products/create}" class="btn btn-pet-primary shadow-sm fw-semibold px-3 py-2">
+            <i class="bi bi-plus-lg me-1"></i>Thêm Sản Phẩm
+        </a>
     </div>
 
+    <!-- Product Table -->
     <div class="card border-0 shadow-sm rounded-4 p-3">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle mb-0">
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Tên sản phẩm</th>
-                        <th>Danh mục</th>
-                        <th>Thú cưng</th>
-                        <th>Trạng thái</th>
-                        <th>Thao tác</th>
-                    </tr>
+                <tr>
+                    <th style="width: 60px;">Ảnh</th>
+                    <th>ID</th>
+                    <th>Tên sản phẩm</th>
+                    <th>Danh mục</th>
+                    <th>Thú cưng</th>
+                    <th>Trạng thái</th>
+                    <th class="text-center">Thao tác</th>
+                </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="p : ${products.content}">
-                        <td th:text="${p.id}">1</td>
-                        <td class="fw-semibold" th:text="${p.name}">Tên SP</td>
-                        <td th:text="${p.category != null ? p.category.name : '-'}">Danh mục</td>
-                        <td><span class="badge bg-secondary" th:text="${p.petType}">DOG</span></td>
-                        <td><span class="badge bg-success" th:text="${p.status}">ACTIVE</span></td>
-                        <td>
-                            <a th:href="@{/staff/products/{id}/edit(id=${p.id})}" class="btn btn-sm btn-outline-secondary">Sửa</a>
-                            <a th:href="@{/staff/products/{id}/variants(id=${p.id})}" class="btn btn-sm btn-outline-primary ms-1">SKU</a>
-                        </td>
-                    </tr>
+                <tr th:each="p : ${products.content}">
+                    <!-- Display Product Image -->
+                    <td class="text-center">
+                        <!-- If image exists, show it. If image fails to load (404), hide it and show icon -->
+                        <img th:if="${p.images != null and !p.images.isEmpty()}"
+                             th:src="@{${p.images[0].imageUrl}}"
+                             class="rounded border"
+                             style="width: 45px; height: 45px; object-fit: cover;"
+                             alt="Product Image"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+
+                        <!-- Default placeholder icon -->
+                        <span th:if="${p.images == null or p.images.isEmpty()}" class="text-muted fs-5">
+                            <i class="bi bi-image"></i>
+                        </span>
+                                            <span class="text-muted fs-5" style="display: none;" th:if="${p.images != null and !p.images.isEmpty()}">
+                            <i class="bi bi-image"></i>
+                        </span>
+                    </td>
+
+                    <td th:text="${p.id}">1</td>
+                    <td class="fw-semibold" th:text="${p.name}">Tên SP</td>
+                    <td th:text="${p.category != null ? p.category.name : '-'}">Danh mục</td>
+
+                    <!-- Pet Type Badges -->
+                    <td>
+                        <span th:if="${p.petType.name() == 'DOG'}" class="badge bg-white text-primary border border-primary px-2 py-1">DOG</span>
+                        <span th:if="${p.petType.name() == 'CAT'}" class="badge bg-white text-danger border border-danger px-2 py-1">CAT</span>
+                        <span th:if="${p.petType.name() == 'BOTH'}" class="badge bg-white text-secondary border border-secondary px-2 py-1">BOTH</span>
+                    </td>
+
+                    <!-- Status Badges -->
+                    <td>
+                        <span th:if="${p.status.name() == 'ACTIVE'}" class="badge bg-success">ACTIVE</span>
+                        <span th:if="${p.status.name() == 'HIDDEN'}" class="badge bg-warning text-dark">HIDDEN</span>
+                        <span th:if="${p.status.name() == 'DISCONTINUED'}" class="badge bg-secondary">DISCONTINUED</span>
+                    </td>
+
+                    <!-- Actions -->
+                    <td class="text-center">
+                        <a th:href="@{/staff/products/{id}/edit(id=${p.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> Sửa
+                        </a>
+                        <a th:href="@{/staff/products/{id}/variants(id=${p.id})}" class="btn btn-sm btn-pet-outline ms-1">
+                            <i class="bi bi-upc-scan"></i> SKU
+                        </a>
+                    </td>
+                </tr>
                 </tbody>
             </table>
         </div>
