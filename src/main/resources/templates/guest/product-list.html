@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi"
       xmlns:th="http://www.thymeleaf.org"
@@ -25,7 +24,7 @@
                             Bộ Lọc Sản Phẩm
                         </h5>
 
-                        <!-- CATEGORY FILTER -->
+                        <!-- CATEGORY FILTER FORM -->
                         <div class="mb-3">
                             <h6 class="text-uppercase text-muted fw-bold small mb-3">
                                 Danh mục
@@ -33,17 +32,17 @@
 
                             <form id="filterForm" method="get" th:action="@{/products}">
 
-                                <input type="hidden"
-                                       name="keyword"
-                                       id="keywordInput"
-                                       th:value="${keyword}">
+                                <!-- Giữ lại từ khóa tìm kiếm và cách sắp xếp hiện tại khi bấm đổi danh mục -->
+                                <input type="hidden" name="keyword" th:value="${keyword}">
+                                <input type="hidden" name="sort" th:value="${sort}">
 
                                 <div class="d-grid gap-2">
 
                                     <button type="submit"
                                             name="categoryId"
                                             value=""
-                                            class="btn btn-light text-start fw-medium rounded-2">
+                                            class="btn text-start fw-medium rounded-2"
+                                            th:classappend="${selectedCategoryId == null or selectedCategoryId == ''} ? 'btn-success text-white' : 'btn-light'">
                                         🐾 Tất cả sản phẩm
                                     </button>
 
@@ -51,7 +50,8 @@
                                             th:each="category : ${categories}"
                                             name="categoryId"
                                             th:value="${category.id}"
-                                            class="btn btn-light text-start fw-medium rounded-2"
+                                            class="btn text-start fw-medium rounded-2"
+                                            th:classappend="${selectedCategoryId == category.id} ? 'btn-success text-white' : 'btn-light'"
                                             th:text="${category.name}">
                                         Danh mục
                                     </button>
@@ -68,13 +68,16 @@
             <!-- PRODUCT LIST -->
             <section class="col-lg-9">
 
-                <!-- SEARCH AND SORT -->
+                <!-- SEARCH AND SORT (Giữ nguyên thanh tìm kiếm & sắp xếp phía trên) -->
                 <div class="card border-0 shadow-sm rounded-3 mb-4">
                     <div class="card-body">
 
                         <form method="get"
                               th:action="@{/products}"
                               class="d-flex flex-column flex-sm-row gap-2">
+
+                            <!-- Giữ lại danh mục đang chọn khi bấm tìm kiếm hoặc sắp xếp -->
+                            <input type="hidden" name="categoryId" th:value="${selectedCategoryId}">
 
                             <input type="text"
                                    name="keyword"
@@ -85,27 +88,16 @@
                             <select name="sort"
                                     id="sortSelect"
                                     class="form-select"
-                                    style="max-width: 200px;">
+                                    style="max-width: 200px;"
+                                    onchange="this.form.submit()"> <!-- Tự động lọc khi đổi kiểu sắp xếp -->
 
-                                <option value="newest"
-                                        th:selected="${sort == 'newest'}">
-                                    Mới nhất
-                                </option>
-
-                                <option value="asc"
-                                        th:selected="${sort == 'asc'}">
-                                    Tên A - Z
-                                </option>
-
-                                <option value="desc"
-                                        th:selected="${sort == 'desc'}">
-                                    Tên Z - A
-                                </option>
+                                <option value="newest" th:selected="${sort == 'newest'}">Mới nhất</option>
+                                <option value="asc" th:selected="${sort == 'asc'}">Tên A - Z</option>
+                                <option value="desc" th:selected="${sort == 'desc'}">Tên Z - A</option>
 
                             </select>
 
-                            <button type="submit"
-                                    class="btn btn-success text-nowrap">
+                            <button type="submit" class="btn btn-success text-nowrap">
                                 <i class="bi bi-search"></i>
                                 Tìm kiếm
                             </button>

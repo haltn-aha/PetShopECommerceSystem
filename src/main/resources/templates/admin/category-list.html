@@ -15,16 +15,12 @@
 
         <!-- Page header -->
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-            <div>
-                <h2 class="fw-bold text-dark mb-2">Quản lý danh mục</h2>
-                <p class="text-muted mb-0">
-                    Thêm, xem, chỉnh sửa và quản lý trạng thái danh mục sản phẩm.
-                </p>
-            </div>
+            <h2 class="fw-bold text-dark mb-0">Quản lý danh mục</h2>
 
             <a th:href="@{/admin/categories/create}"
                class="btn btn-success rounded-pill px-4">
-                <i class="bi bi-plus-circle me-2"></i>Thêm danh mục
+                <i class="bi bi-plus-circle me-2"></i>
+                Thêm danh mục
             </a>
         </div>
 
@@ -79,8 +75,7 @@
                                       th:text="${cat.code}"></span>
                             </td>
 
-                            <td class="fw-semibold"
-                                th:text="${cat.name}"></td>
+                            <td class="fw-semibold" th:text="${cat.name}"></td>
 
                             <td>
                                 <span th:text="${cat.description != null
@@ -115,26 +110,34 @@
 
                                     <!-- Activate / deactivate -->
                                     <form th:action="@{/admin/categories/toggle-status/{id}(id=${cat.id})}"
-                                          method="post"
-                                          class="d-inline">
-
+                                          method="post" class="d-inline">
                                         <button type="submit"
                                                 class="btn btn-sm"
                                                 th:classappend="${cat.isActive}
-                                                    ? ' btn-outline-danger'
+                                                    ? ' btn-outline-warning'
                                                     : ' btn-outline-success'"
                                                 th:title="${cat.isActive}
                                                     ? 'Ngừng hoạt động'
                                                     : 'Kích hoạt lại'"
                                                 onclick="return confirm('Em có chắc muốn thay đổi trạng thái danh mục này không?')">
-
                                             <i th:class="${cat.isActive}
                                                 ? 'bi bi-pause-circle'
                                                 : 'bi bi-check-circle'"></i>
-
                                             <span th:text="${cat.isActive}
                                                 ? 'Ngừng hoạt động'
                                                 : 'Kích hoạt'"></span>
+                                        </button>
+                                    </form>
+
+                                    <!-- Soft delete -->
+                                    <form th:if="${cat.isActive}"
+                                          th:action="@{/admin/categories/delete/{id}(id=${cat.id})}"
+                                          method="post" class="d-inline"
+                                          onsubmit="return confirm('Xóa mềm danh mục này? Danh mục sẽ được chuyển sang trạng thái ngừng hoạt động.');">
+                                        <button type="submit"
+                                                class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                            Xóa
                                         </button>
                                     </form>
 

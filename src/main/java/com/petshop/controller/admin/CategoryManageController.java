@@ -9,7 +9,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.List;
 import java.util.Optional;
 
 @Controller
@@ -190,14 +189,50 @@ public class CategoryManageController {
         }
 
         Category category = optionalCategory.get();
-
         category.setIsActive(!Boolean.TRUE.equals(category.getIsActive()));
-
         categoryRepository.save(category);
 
         redirectAttributes.addFlashAttribute(
                 "successMessage",
                 "Category status updated successfully."
+        );
+
+        return "redirect:/admin/categories";
+    }
+
+    // Soft delete: deactivate the category without deleting database data
+    @PostMapping("/delete/{id}")
+    public String deleteCategory(
+            @PathVariable Integer id,
+            RedirectAttributes redirectAttributes) {
+
+        Optional<Category> optionalCategory =
+                categoryRepository.findById(id);
+
+        if (optionalCategory.isEmpty()) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage",
+                    "Category not found."
+            );
+            return "redirect:/admin/categories";
+        }
+
+        Category category = optionalCategory.get();
+
+        if (Boolean.FALSE.equals(category.getIsActive())) {
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage",
+                    "This category is already inactive."
+            );
+            return "redirect:/admin/categories";
+        }
+
+        category.setIsActive(false);
+        categoryRepository.save(category);
+
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                "Category deactivated successfully."
         );
 
         return "redirect:/admin/categories";
