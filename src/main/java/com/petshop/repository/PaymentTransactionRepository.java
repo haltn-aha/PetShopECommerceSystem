@@ -15,6 +15,16 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     Optional<PaymentTransaction> findByTransactionCode(String transactionCode);
     Optional<PaymentTransaction> findByProviderOrderReference(String providerOrderReference);
     List<PaymentTransaction> findByOrderIdOrderByCreatedAtDesc(Long orderId);
+    boolean existsByProviderTransactionIdAndIdNot(String providerTransactionId, Long id);
+
+    // Read scalar IDs before locking the order, without caching stale mutable entities.
+    @Query("SELECT pt.order.id FROM PaymentTransaction pt WHERE pt.transactionCode = :code")
+    Optional<Long> findOrderIdByTransactionCode(@Param("code") String code);
+
+    @Query("SELECT DISTINCT pt.order.id FROM PaymentTransaction pt " +
+           "WHERE pt.transactionStatus = com.petshop.entity.enums.TransactionStatus.PENDING " +
+           "AND pt.expiresAt <= :now ORDER BY pt.order.id")
+    List<Long> findExpiredPendingOrderIds(@Param("now") LocalDateTime now);
 
     @Query("SELECT pt FROM PaymentTransaction pt " +
            "JOIN FETCH pt.order o " +
