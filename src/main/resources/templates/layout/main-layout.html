@@ -192,6 +192,10 @@
                                         <a class="dropdown-item text-danger" th:href="@{/admin/dashboard}">
                                             <i class="bi bi-shield-lock me-2"></i>Trang Quản Trị
                                         </a>
+                                    <li sec:authorize="hasAnyRole('STAFF', 'ADMIN')">
+                                        <a class="dropdown-item text-secondary" th:href="@{/staff/profile}">
+                                            <i class="bi bi-person-badge me-2"></i>Hồ Sơ Nhân Viên
+                                        </a>
                                     </li>
                                     <li sec:authorize="hasAnyRole('STAFF', 'ADMIN')"><hr class="dropdown-divider"></li>
                                     

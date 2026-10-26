@@ -1,6 +1,7 @@
 package com.petshop.service;
 
 import com.petshop.dto.auth.AddressCreateDto;
+import com.petshop.dto.auth.AddressUpdateDto;
 import com.petshop.dto.auth.PasswordChangeRequestDto;
 import com.petshop.dto.auth.ProfileUpdateRequestDto;
 import com.petshop.dto.auth.RegisterRequestDto;
@@ -20,6 +21,7 @@ public interface UserService {
 
     List<UserAddress> getCustomerAddresses(Long customerId);
     UserAddress addAddress(Long customerId, AddressCreateDto request);
+    void updateAddress(Long customerId, Long addressId, AddressUpdateDto request);
     void setDefaultAddress(Long customerId, Long addressId);
     void deleteAddress(Long customerId, Long addressId);
 

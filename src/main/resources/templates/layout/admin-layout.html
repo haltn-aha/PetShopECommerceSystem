@@ -147,6 +147,11 @@
             <a th:href="@{/admin/reports/reviews}" class="nav-link"><i class="bi bi-star me-2"></i>Báo cáo đánh giá</a>
             </th:block>
 
+            <div class="sidebar-heading mt-2">Tài Khoản</div>
+            <a th:href="@{/staff/profile}">
+                <i class="bi bi-person-badge"></i> Hồ Sơ Cá Nhân
+            </a>
+
             <div class="sidebar-heading mt-2">Liên Kết Nhanh</div>
             <a th:href="@{/}" target="_blank">
                 <i class="bi bi-box-arrow-up-right"></i> Xem Storefront Khách
@@ -161,9 +166,11 @@
             <h6 class="m-0 text-secondary" layout:fragment="admin-header-title">Trang Quản Lý</h6>
             
             <div class="d-flex align-items-center gap-3">
-                <span class="text-muted small">SWP391 PetShop</span>
+                <a th:href="@{/staff/profile}" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 rounded-pill px-3">
+                    <i class="bi bi-person-circle"></i> Hồ Sơ Cá Nhân
+                </a>
                 <form th:action="@{/logout}" method="post" class="m-0" onsubmit="return confirm('Bạn có chắc chắn muốn đăng xuất?');">
-                    <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1">
+                    <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 rounded-pill px-3">
                         <i class="bi bi-box-arrow-right"></i> Đăng Xuất
                     </button>
                 </form>

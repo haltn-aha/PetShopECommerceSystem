@@ -1,6 +1,7 @@
 package com.petshop.service.impl;
 
 import com.petshop.dto.auth.AddressCreateDto;
+import com.petshop.dto.auth.AddressUpdateDto;
 import com.petshop.dto.auth.PasswordChangeRequestDto;
 import com.petshop.dto.auth.ProfileUpdateRequestDto;
 import com.petshop.dto.auth.RegisterRequestDto;
@@ -151,6 +152,28 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         return addressRepository.save(address);
+    }
+
+    @Override
+    @Transactional
+    public void updateAddress(Long customerId, Long addressId, AddressUpdateDto request) {
+        UserAddress address = addressRepository.findByIdAndCustomerIdAndIsDeletedFalse(addressId, customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy địa chỉ hợp lệ."));
+
+        address.setRecipientName(request.getRecipientName().trim());
+        address.setRecipientPhone(request.getRecipientPhone().trim());
+        address.setProvince(request.getProvince().trim());
+        address.setDistrict(request.getDistrict().trim());
+        address.setWard(request.getWard().trim());
+        address.setAddressLine(request.getAddressLine().trim());
+
+        if (Boolean.TRUE.equals(request.getIsDefault()) && !Boolean.TRUE.equals(address.getIsDefault())) {
+            addressRepository.resetDefaultAddresses(customerId);
+            address.setIsDefault(true);
+        }
+
+        addressRepository.save(address);
+        log.info("Updated address ID {} for customer ID {}", addressId, customerId);
     }
 
     @Override

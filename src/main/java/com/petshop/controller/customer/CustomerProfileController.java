@@ -2,6 +2,7 @@ package com.petshop.controller.customer;
 
 import com.petshop.config.security.CustomUserDetails;
 import com.petshop.dto.auth.AddressCreateDto;
+import com.petshop.dto.auth.AddressUpdateDto;
 import com.petshop.dto.auth.PasswordChangeRequestDto;
 import com.petshop.dto.auth.ProfileUpdateRequestDto;
 import com.petshop.dto.cart.CartDto;
@@ -147,6 +148,24 @@ public class CustomerProfileController {
                              RedirectAttributes redirectAttributes) {
         userService.addAddress(userDetails.getId(), request);
         redirectAttributes.addFlashAttribute("successMessage", "Thêm địa chỉ giao hàng thành công!");
+        if ("profile".equalsIgnoreCase(source)) {
+            return "redirect:/customer/profile?tab=addresses";
+        }
+        return "redirect:/customer/addresses";
+    }
+
+    @PostMapping("/addresses/{id}/edit")
+    public String updateAddress(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                @PathVariable Long id,
+                                @Valid @ModelAttribute("addressForm") AddressUpdateDto request,
+                                @RequestParam(value = "source", required = false) String source,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            userService.updateAddress(userDetails.getId(), id, request);
+            redirectAttributes.addFlashAttribute("successMessage", "Cập nhật địa chỉ giao hàng thành công!");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         if ("profile".equalsIgnoreCase(source)) {
             return "redirect:/customer/profile?tab=addresses";
         }

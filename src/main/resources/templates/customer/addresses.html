@@ -71,12 +71,24 @@
 
                         <p class="text-secondary small mb-3">
                             <i class="bi bi-geo-alt me-1 text-danger"></i>
-                            <span th:text="${addr.addressLine + ', ' + addr.ward + ', ' + addr.district + ', ' + addr.province}">
+                            <span th:text="|${addr.addressLine}, ${addr.ward}, ${addr.district}, ${addr.province}|">
                                 Khu phố 6, Đại học FPT, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh
                             </span>
                         </p>
 
                         <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3"
+                                    th:data-id="${addr.id}"
+                                    th:data-recipient-name="${addr.recipientName}"
+                                    th:data-recipient-phone="${addr.recipientPhone}"
+                                    th:data-province="${addr.province}"
+                                    th:data-district="${addr.district}"
+                                    th:data-ward="${addr.ward}"
+                                    th:data-address-line="${addr.addressLine}"
+                                    th:data-is-default="${addr.isDefault}"
+                                    onclick="openEditAddressModal(this)">
+                                <i class="bi bi-pencil me-1"></i> Sửa
+                            </button>
                             <form th:if="${!addr.isDefault}" th:action="@{/customer/addresses/{id}/set-default(id=${addr.id})}" method="post">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
                                     <i class="bi bi-check-lg me-1"></i> Đặt làm mặc định
@@ -163,6 +175,107 @@
             </div>
         </div>
     </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL POPUP: CẬP NHẬT ĐỊA CHỈ GIAO HÀNG                          -->
+    <!-- ================================================================= -->
+    <div class="modal fade" id="editAddressModal" tabindex="-1" aria-labelledby="editAddressModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+                <div class="modal-header bg-pet-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold" id="editAddressModalLabel">
+                        <i class="bi bi-pencil-square me-2"></i> Cập Nhật Địa Chỉ Giao Hàng
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="editAddressForm" method="post">
+                    <div class="modal-body p-4">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Tên người nhận <span class="text-danger">*</span></label>
+                                <input type="text" name="recipientName" id="editRecipientName" class="form-control" required placeholder="Họ và tên">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Số điện thoại <span class="text-danger">*</span></label>
+                                <input type="tel" name="recipientPhone" id="editRecipientPhone" class="form-control" required placeholder="0901234567">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Tỉnh / Thành phố <span class="text-danger">*</span></label>
+                                <input type="text" name="province" id="editProvince" class="form-control" required placeholder="TP. Hồ Chí Minh">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Quận / Huyện <span class="text-danger">*</span></label>
+                                <input type="text" name="district" id="editDistrict" class="form-control" required placeholder="Thủ Đức">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Phường / Xã <span class="text-danger">*</span></label>
+                                <input type="text" name="ward" id="editWard" class="form-control" required placeholder="Linh Trung">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Địa chỉ chi tiết <span class="text-danger">*</span></label>
+                                <input type="text" name="addressLine" id="editAddressLine" class="form-control" required placeholder="Số nhà, tên đường, tòa nhà">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="isDefault" value="true" id="editDefaultCheck">
+                                    <label class="form-check-label small" for="editDefaultCheck">
+                                        Đặt làm địa chỉ giao hàng mặc định
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer bg-light border-0 py-3 px-4">
+                        <button type="button" class="btn btn-outline-secondary px-3 rounded-3" data-bs-dismiss="modal">Hủy bỏ</button>
+                        <button type="submit" class="btn btn-pet-primary px-4 fw-semibold rounded-3">
+                            <i class="bi bi-check2 me-1"></i> Lưu Thay Đổi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+
+<th:block layout:fragment="custom-js">
+    <script>
+        function openEditAddressModal(btnOrId, recipientName, recipientPhone, province, district, ward, addressLine, isDefault) {
+            let id, name, phone, prov, dist, w, addr, def;
+            if (btnOrId instanceof HTMLElement) {
+                const d = btnOrId.dataset;
+                id = d.id;
+                name = d.recipientName || '';
+                phone = d.recipientPhone || '';
+                prov = d.province || '';
+                dist = d.district || '';
+                w = d.ward || '';
+                addr = d.addressLine || '';
+                def = (d.isDefault === 'true');
+            } else {
+                id = btnOrId;
+                name = recipientName || '';
+                phone = recipientPhone || '';
+                prov = province || '';
+                dist = district || '';
+                w = ward || '';
+                addr = addressLine || '';
+                def = !!isDefault;
+            }
+
+            document.getElementById('editRecipientName').value = name;
+            document.getElementById('editRecipientPhone').value = phone;
+            document.getElementById('editProvince').value = prov;
+            document.getElementById('editDistrict').value = dist;
+            document.getElementById('editWard').value = w;
+            document.getElementById('editAddressLine').value = addr;
+            document.getElementById('editDefaultCheck').checked = def;
+            document.getElementById('editAddressForm').action = '/customer/addresses/' + id + '/edit';
+            const modal = new bootstrap.Modal(document.getElementById('editAddressModal'));
+            modal.show();
+        }
+    </script>
+</th:block>
 </body>
 </html>
