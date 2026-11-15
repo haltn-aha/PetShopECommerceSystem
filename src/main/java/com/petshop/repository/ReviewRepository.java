@@ -18,6 +18,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Optional<Review> findByIdForUpdate(@Param("id") Long id);
     Optional<Review> findByOrderItemId(Long orderItemId);
     boolean existsByOrderItemId(Long orderItemId);
+    @Query("SELECT r.orderItem.id FROM Review r WHERE r.customer.id = :customerId AND r.orderItem.id IN :ids")
+    java.util.Set<Long> reviewedItemIds(@Param("customerId") Long customerId, @Param("ids") java.util.Collection<Long> ids);
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orderItem", "orderItem.order"})
     @Query("SELECT r FROM Review r " +
@@ -27,7 +29,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
            "ORDER BY r.createdAt DESC, r.id DESC")
     Page<Review> findVisibleReviewsByProductId(@Param("productId") Long productId, Pageable pageable);
 
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orderItem", "orderItem.order"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths={"orderItem", "orderItem.order", "orderItem.variant", "orderItem.variant.product"})
     Page<Review> findByCustomerIdOrderByCreatedAtDescIdDesc(Long customerId, Pageable pageable);
 
     @Query("SELECT AVG(r.rating * 1.0) FROM Review r " +
@@ -43,6 +45,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
            "LEFT JOIN FETCH r.repliedBy " +
            "JOIN FETCH r.customer c " +
            "JOIN FETCH r.orderItem oi " +
+           "JOIN FETCH oi.order " +
            "JOIN FETCH oi.variant pv " +
            "JOIN FETCH pv.product p " +
            "WHERE (:rating IS NULL OR r.rating = :rating) " +

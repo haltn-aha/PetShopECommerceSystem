@@ -49,8 +49,13 @@ public class ReportService {
                 .setParameter("start",start).setParameter("end",end).setMaxResults(10).getResultList();
     }
 
-    public List<Object[]> reviewsByProduct(LocalDateTime start, LocalDateTime end) {
-        return em.createQuery("SELECT r.orderItem.variant.product.name, COUNT(r), AVG(r.rating * 1.0), SUM(CASE WHEN r.status = com.petshop.entity.enums.ReviewStatus.VISIBLE THEN 1 ELSE 0 END), SUM(CASE WHEN r.status = com.petshop.entity.enums.ReviewStatus.HIDDEN THEN 1 ELSE 0 END) FROM Review r WHERE r.createdAt >= :start AND r.createdAt < :end GROUP BY r.orderItem.variant.product.name, r.orderItem.variant.product.id ORDER BY COUNT(r) DESC",Object[].class)
+    public List<com.petshop.dto.admin.ProductReviewReportRow> reviewsByProduct(LocalDateTime start, LocalDateTime end) {
+        return em.createQuery("SELECT new com.petshop.dto.admin.ProductReviewReportRow(r.orderItem.variant.product.id, r.orderItem.variant.product.name, r.orderItem.variant.product.slug, COUNT(r), AVG(r.rating * 1.0), SUM(CASE WHEN r.status = com.petshop.entity.enums.ReviewStatus.VISIBLE THEN 1 ELSE 0 END), SUM(CASE WHEN r.status = com.petshop.entity.enums.ReviewStatus.HIDDEN THEN 1 ELSE 0 END), SUM(r.rating)) FROM Review r WHERE r.createdAt >= :start AND r.createdAt < :end GROUP BY r.orderItem.variant.product.name, r.orderItem.variant.product.id, r.orderItem.variant.product.slug ORDER BY COUNT(r) DESC, r.orderItem.variant.product.id ASC",com.petshop.dto.admin.ProductReviewReportRow.class)
                 .setParameter("start",start).setParameter("end",end).getResultList();
+    }
+
+    public java.time.LocalDate firstReviewDate() {
+        LocalDateTime first = em.createQuery("SELECT MIN(r.createdAt) FROM Review r", LocalDateTime.class).getSingleResult();
+        return first == null ? java.time.LocalDate.now() : first.toLocalDate();
     }
 }

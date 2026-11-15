@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ReviewService {
+    java.util.Set<Long> reviewedItemIds(Long customerId, java.util.Collection<Long> itemIds);
     com.petshop.entity.OrderItem eligibleItem(Long customerId, Long itemId);
     Review createReview(Long customerId, Long itemId, com.petshop.dto.ReviewCreateDto form);
     Page<Review> myReviews(Long customerId, Pageable pageable);

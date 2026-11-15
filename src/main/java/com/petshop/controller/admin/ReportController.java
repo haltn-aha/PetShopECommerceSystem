@@ -29,6 +29,7 @@ public class ReportController {
     private final OrderRepository orderRepository;
     private final StockImportService stockImportService;
     private final com.petshop.service.ReportService reportService;
+    private final com.petshop.service.ProductThumbnailService thumbnails;
 
     @GetMapping("/revenue")
     public String revenueReport(@RequestParam(required = false) String preset,
@@ -39,7 +40,11 @@ public class ReportController {
         LocalDate today = LocalDate.now();
 
         // Handle quick presets
-        if ("today".equalsIgnoreCase(preset)) {
+        if ("all".equalsIgnoreCase(preset)) {
+            LocalDateTime first = orderRepository.firstCompletedAtBefore(today.plusDays(1).atStartOfDay());
+            startDate = first == null ? today : first.toLocalDate();
+            endDate = today;
+        } else if ("today".equalsIgnoreCase(preset)) {
             startDate = today;
             endDate = today;
         } else if ("7days".equalsIgnoreCase(preset)) {
@@ -176,13 +181,27 @@ public class ReportController {
     }
 
     @GetMapping("/reviews")
-    public String reviewReport(@RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate startDate,
+    public String reviewReport(@RequestParam(required=false) String preset,
+            @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate endDate, Model model) {
+        if ("all".equalsIgnoreCase(preset)) {
+            startDate=reportService.firstReviewDate(); endDate=LocalDate.now();
+            if (startDate.isAfter(endDate)) startDate=endDate;
+        }
         if (endDate==null) endDate=LocalDate.now();
         if (startDate==null) startDate=defaultStart(endDate);
         LocalDate[] range = checkedRange(startDate,endDate,model);startDate=range[0];endDate=range[1];
         model.addAttribute("startDate",startDate); model.addAttribute("endDate",endDate);
-        model.addAttribute("reviewStats",reportService.reviewsByProduct(startDate.atStartOfDay(),endDate.plusDays(1).atStartOfDay()));
+        var stats=reportService.reviewsByProduct(startDate.atStartOfDay(),endDate.plusDays(1).atStartOfDay());
+        long reviewCount=stats.stream().mapToLong(com.petshop.dto.admin.ProductReviewReportRow::getReviewCount).sum();
+        long ratingTotal=stats.stream().mapToLong(com.petshop.dto.admin.ProductReviewReportRow::getRatingTotal).sum();
+        model.addAttribute("reviewStats",stats);
+        model.addAttribute("reviewImages",thumbnails.forProducts(stats.stream().map(com.petshop.dto.admin.ProductReviewReportRow::getProductId).toList()));
+        model.addAttribute("reviewCount",reviewCount);
+        model.addAttribute("visibleReviewCount",stats.stream().mapToLong(com.petshop.dto.admin.ProductReviewReportRow::getVisibleCount).sum());
+        model.addAttribute("hiddenReviewCount",stats.stream().mapToLong(com.petshop.dto.admin.ProductReviewReportRow::getHiddenCount).sum());
+        model.addAttribute("averageReviewRating",reviewCount==0 ? BigDecimal.ZERO : BigDecimal.valueOf(ratingTotal).divide(BigDecimal.valueOf(reviewCount),1,RoundingMode.HALF_UP));
+        model.addAttribute("preset",preset);
         return "admin/report-reviews";
     }
 

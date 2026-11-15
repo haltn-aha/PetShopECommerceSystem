@@ -45,16 +45,7 @@
                 <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
                     <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
                         <h5 class="fw-bold mb-0">Sản Phẩm Đã Mua</h5>
-                        <button th:if="${order.orderStatus.name() == 'COMPLETED' and order.paymentStatus.name() == 'PAID' and !order.items.empty}"
-                                type="button"
-                                class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1"
-                                data-bs-toggle="modal"
-                                data-bs-target="#reviewModal"
-                                th:data-order-item-id="${order.items[0].id}"
-                                th:data-product-name="${order.items[0].productNameSnapshot}"
-                                th:data-variant-name="${order.items[0].variantNameSnapshot}">
-                            <i class="bi bi-star me-1"></i> Đánh giá sản phẩm
-                        </button>
+
                     </div>
                     <ul class="list-group list-group-flush">
                         <li th:each="item : ${order.items}"
@@ -66,7 +57,7 @@
                                         th:classappend="${isOutOfStock} ? 'text-secondary text-decoration-line-through' : ''"
                                         th:text="${item.productNameSnapshot}">Tên SP</h6>
                                     <span th:if="${isOutOfStock}" class="badge bg-danger-subtle text-danger border border-danger-subtle small px-2 py-0">Hết hàng</span>
-                                    <button th:if="${order.orderStatus.name() == 'COMPLETED' and order.paymentStatus.name() == 'PAID' and order.items.size() > 1}"
+                                    <button th:if="${order.orderStatus.name() == 'COMPLETED' and order.paymentStatus.name() == 'PAID' and !reviewedItemIds.contains(item.id)}"
                                             type="button"
                                             class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0 small"
                                             style="font-size: 0.8rem;"
@@ -74,9 +65,13 @@
                                             data-bs-target="#reviewModal"
                                             th:data-order-item-id="${item.id}"
                                             th:data-product-name="${item.productNameSnapshot}"
-                                            th:data-variant-name="${item.variantNameSnapshot}">
+                                            th:data-variant-name="${item.variantNameSnapshot}"
+                                            th:data-product-image="${reviewImages[item.id]}"
+                                            th:data-order-code="${order.orderCode}"
+                                            th:data-sku="${item.skuCodeSnapshot}">
                                         <i class="bi bi-star me-1"></i> Đánh giá
                                     </button>
+                                    <span th:if="${reviewedItemIds.contains(item.id)}" class="feedback-status feedback-status-visible"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Đã đánh giá</span>
                                 </div>
                                 <small class="text-muted d-block mt-1" th:text="${item.variantNameSnapshot + ' | SKU: ' + item.skuCodeSnapshot}"></small>
                             </div>
@@ -182,21 +177,20 @@
                             <input type="hidden" name="redirectUrl" th:value="@{/customer/orders/{id}(id=${order.id})}">
 
                             <!-- Thông tin sản phẩm được đánh giá -->
-                            <div class="p-3 bg-light rounded-3 mb-3 border">
-                                <div class="fw-bold text-dark fs-6" id="modalReviewProductName">Tên sản phẩm</div>
-                                <small class="text-muted d-block mt-1" id="modalReviewVariantName">Phân loại hàng</small>
-                            </div>
+                            <div class="feedback-product feedback-modal-product text-start">
+                                <img id="modalReviewProductImage" class="feedback-product-image" src="/images/product-placeholder.svg" alt="Sản phẩm đang đánh giá" width="76" height="76" data-review-image th:data-fallback-src="@{/images/product-placeholder.svg}">
+                                <div class="feedback-product-copy"><span class="feedback-eyebrow">Bạn đang đánh giá</span><strong id="modalReviewProductName" class="feedback-product-name">Tên sản phẩm</strong><span id="modalReviewVariantName" class="feedback-variant">Phân loại hàng</span><span id="modalReviewOrder" class="feedback-sku"></span></div></div>
 
                             <!-- Chọn số sao tương tác -->
                             <div class="mb-3 text-center">
                                 <label class="form-label fw-semibold d-block mb-1">Mức độ hài lòng của bạn</label>
                                 <input type="hidden" name="rating" id="modalRatingInput" value="5" required>
                                 <div class="star-rating d-inline-flex gap-2 my-1" id="starContainer">
-                                    <i class="bi bi-star-fill active-star" data-val="1"></i>
-                                    <i class="bi bi-star-fill active-star" data-val="2"></i>
-                                    <i class="bi bi-star-fill active-star" data-val="3"></i>
-                                    <i class="bi bi-star-fill active-star" data-val="4"></i>
-                                    <i class="bi bi-star-fill active-star" data-val="5"></i>
+                                    <button type="button" class="review-star-button" data-val="1" aria-label="1 sao" aria-pressed="false"><i class="bi bi-star-fill active-star" data-val="1" aria-hidden="true"></i></button>
+                                    <button type="button" class="review-star-button" data-val="2" aria-label="2 sao" aria-pressed="false"><i class="bi bi-star-fill active-star" data-val="2" aria-hidden="true"></i></button>
+                                    <button type="button" class="review-star-button" data-val="3" aria-label="3 sao" aria-pressed="false"><i class="bi bi-star-fill active-star" data-val="3" aria-hidden="true"></i></button>
+                                    <button type="button" class="review-star-button" data-val="4" aria-label="4 sao" aria-pressed="false"><i class="bi bi-star-fill active-star" data-val="4" aria-hidden="true"></i></button>
+                                    <button type="button" class="review-star-button" data-val="5" aria-label="5 sao" aria-pressed="true"><i class="bi bi-star-fill active-star" data-val="5" aria-hidden="true"></i></button>
                                 </div>
                                 <div class="small fw-semibold text-warning" id="ratingText">5 sao - Rất hài lòng</div>
                             </div>
@@ -206,7 +200,7 @@
                                 <label for="modalComment" class="form-label fw-semibold">
                                     Nhận xét chi tiết <span class="text-danger">*</span>
                                 </label>
-                                <textarea id="modalComment" name="comment" maxlength="1000" required rows="4"
+                                <textarea id="modalComment" name="comment" maxlength="1000" required rows="4" data-feedback-counter="charCounter" aria-describedby="charCounter"
                                           class="form-control rounded-3"
                                           placeholder="Hãy chia sẻ cảm nhận về chất lượng sản phẩm (tối đa 1000 ký tự)..."></textarea>
                                 <div class="d-flex justify-content-between mt-1">
@@ -248,6 +242,7 @@
                 function setStars(val) {
                     ratingInput.value = val;
                     ratingText.textContent = ratingDescriptions[val] || (val + ' sao');
+                    starContainer.querySelectorAll('button[data-val]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.val) === val)));
                     const stars = starContainer.querySelectorAll('i');
                     stars.forEach(star => {
                         const starVal = parseInt(star.getAttribute('data-val'), 10);
@@ -279,6 +274,10 @@
                         const orderItemId = button.getAttribute('data-order-item-id');
                         const productName = button.getAttribute('data-product-name');
                         const variantName = button.getAttribute('data-variant-name');
+                        const productImage = document.getElementById('modalReviewProductImage');
+                        productImage.src = button.getAttribute('data-product-image') || '/images/product-placeholder.svg';
+                        productImage.alt = productName || 'Sản phẩm đang đánh giá';
+                        document.getElementById('modalReviewOrder').textContent = 'Đơn ' + (button.getAttribute('data-order-code') || '') + ' · SKU: ' + (button.getAttribute('data-sku') || '');
 
                         document.getElementById('modalOrderItemId').value = orderItemId || '';
                         document.getElementById('modalReviewProductName').textContent = productName || 'Sản phẩm';
@@ -288,6 +287,7 @@
                         setStars(5);
                         if (commentInput) {
                             commentInput.value = '';
+                            commentInput.dispatchEvent(new Event('input', {bubbles:true}));
                             if (charCounter) charCounter.textContent = '0 / 1000';
                         }
                     }

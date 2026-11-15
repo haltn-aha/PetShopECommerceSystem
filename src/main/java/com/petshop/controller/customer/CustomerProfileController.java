@@ -38,6 +38,8 @@ public class CustomerProfileController {
     private final OrderService orderService;
     private final CartService cartService;
     private final OrderRepository orderRepository;
+    private final com.petshop.service.ProductThumbnailService thumbnails;
+    private final com.petshop.service.ReviewService reviewService;
 
     @GetMapping("/profile")
     public String viewProfile(@AuthenticationPrincipal CustomUserDetails userDetails,
@@ -58,6 +60,9 @@ public class CustomerProfileController {
         // 2. Đơn hàng của tôi
         Page<Order> orders = orderService.getCustomerOrders(userDetails.getId(), null, PageRequest.of(0, 10));
         model.addAttribute("orders", orders);
+        var itemIds = orders.stream().flatMap(o -> o.getItems().stream()).map(com.petshop.entity.OrderItem::getId).toList();
+        model.addAttribute("reviewImages", thumbnails.forOrderItems(itemIds));
+        model.addAttribute("reviewedItemIds", reviewService.reviewedItemIds(userDetails.getId(), itemIds));
         model.addAttribute("orderCount", orders.getTotalElements());
 
         long pendingCount = orderRepository.countByCustomerIdAndOrderStatus(userDetails.getId(), OrderStatus.PENDING_CONFIRMATION)

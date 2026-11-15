@@ -20,6 +20,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class ReviewManageController {
 
     private final ReviewService reviewService;
+    private final com.petshop.service.ProductThumbnailService thumbnails;
 
     @GetMapping
     public String listReviews(@RequestParam(required = false) String keyword,
@@ -32,6 +33,7 @@ public class ReviewManageController {
         Page<Review> reviewPage = reviewService.searchReviews(keyword, rating, status, pageable);
 
         model.addAttribute("reviews", reviewPage);
+        model.addAttribute("reviewImages", thumbnails.forOrderItems(reviewPage.stream().map(r -> r.getOrderItem().getId()).toList()));
         model.addAttribute("keyword", keyword);
         model.addAttribute("rating", rating);
         model.addAttribute("status", status);

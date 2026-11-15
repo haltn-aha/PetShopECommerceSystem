@@ -81,12 +81,15 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
        List<Object[]> getRevenueStatistics(@Param("startDate") LocalDateTime startDate,
                      @Param("endDate") LocalDateTime endDate);
 
-       @Query("SELECT COALESCE(SUM(o.subtotalAmount - o.discountAmount), 0) FROM Order o WHERE o.orderStatus = :status")
+       @Query("SELECT COALESCE(SUM(o.subtotalAmount - o.discountAmount), 0) FROM Order o WHERE o.orderStatus = :status AND o.paymentStatus = com.petshop.entity.enums.PaymentStatus.PAID AND o.completedAt IS NOT NULL")
        java.math.BigDecimal sumTotalAmountByOrderStatus(@Param("status") OrderStatus status);
 
-       @Query("SELECT COALESCE(SUM(o.subtotalAmount - o.discountAmount), 0) FROM Order o WHERE o.orderStatus = :status AND o.completedAt >= :start AND o.completedAt < :end")
+       @Query("SELECT COALESCE(SUM(o.subtotalAmount - o.discountAmount), 0) FROM Order o WHERE o.orderStatus = :status AND o.paymentStatus = com.petshop.entity.enums.PaymentStatus.PAID AND o.completedAt >= :start AND o.completedAt < :end")
        java.math.BigDecimal sumRevenueBetween(@Param("status") OrderStatus status, @Param("start") LocalDateTime start,
                      @Param("end") LocalDateTime end);
+
+       @Query("SELECT MIN(o.completedAt) FROM Order o WHERE o.orderStatus = com.petshop.entity.enums.OrderStatus.COMPLETED AND o.paymentStatus = com.petshop.entity.enums.PaymentStatus.PAID AND o.completedAt < :end")
+       LocalDateTime firstCompletedAtBefore(@Param("end") LocalDateTime end);
 
        long countByOrderStatus(OrderStatus status);
 

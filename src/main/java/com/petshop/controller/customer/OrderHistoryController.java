@@ -30,6 +30,8 @@ public class OrderHistoryController {
 
     private final OrderService orderService;
     private final com.petshop.service.VnPayService vnPayService;
+    private final com.petshop.service.ProductThumbnailService thumbnails;
+    private final com.petshop.service.ReviewService reviewService;
 
     @ModelAttribute("resumableOrderIds")
     public java.util.Set<Long> resumableOrderIds() {
@@ -107,6 +109,9 @@ public class OrderHistoryController {
             return "error/404";
         }
         model.addAttribute("order", order);
+        var itemIds = order.getItems().stream().map(com.petshop.entity.OrderItem::getId).toList();
+        model.addAttribute("reviewImages", thumbnails.forOrderItems(itemIds));
+        model.addAttribute("reviewedItemIds", reviewService.reviewedItemIds(userDetails.getId(), itemIds));
         model.addAttribute("canResumePayment", vnPayService.getResumableOrderIds(userDetails.getId(),
                 java.util.List.of(id)).contains(id));
         model.addAttribute("currentCustomerId", userDetails.getId());

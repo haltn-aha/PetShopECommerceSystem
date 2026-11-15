@@ -13,7 +13,7 @@ class ReviewModerationErrorTests {
         var reviews=mock(ReviewService.class);
         when(reviews.toggleReviewStatus(1L)).thenThrow(new DataAccessResourceFailureException("SQL connection details must stay in server logs"));
         var flash=new RedirectAttributesModelMap();
-        assertEquals("redirect:/admin/reviews",new ReviewManageController(reviews).toggleStatus(1L,null,null,null,0,20,flash));
+        assertEquals("redirect:/admin/reviews",new ReviewManageController(reviews,mock(com.petshop.service.ProductThumbnailService.class)).toggleStatus(1L,null,null,null,0,20,flash));
         String message=flash.getFlashAttributes().get("errorMessage").toString();
         assertFalse(message.contains("SQL connection"));assertFalse(message.isBlank());
         assertFalse(flash.getFlashAttributes().containsKey("successMessage"));

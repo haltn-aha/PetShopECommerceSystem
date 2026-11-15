@@ -9,6 +9,10 @@ import java.util.Optional;
 
 @Repository
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"order", "order.customer", "variant", "variant.product"})
+    @org.springframework.data.jpa.repository.Query("SELECT i FROM OrderItem i WHERE i.id = :id")
+    Optional<OrderItem> findReviewItem(@org.springframework.data.repository.query.Param("id") Long id);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("SELECT i FROM OrderItem i WHERE i.id = :id")
     Optional<OrderItem> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);

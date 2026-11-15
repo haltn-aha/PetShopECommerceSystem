@@ -23,8 +23,13 @@ public class ReviewServiceImpl implements ReviewService {
     private final jakarta.persistence.EntityManager em;
 
     @Override @Transactional(readOnly=true)
+    public java.util.Set<Long> reviewedItemIds(Long customerId, java.util.Collection<Long> itemIds) {
+        return itemIds.isEmpty() ? java.util.Set.of() : reviewRepository.reviewedItemIds(customerId, itemIds);
+    }
+
+    @Override @Transactional(readOnly=true)
     public com.petshop.entity.OrderItem eligibleItem(Long customerId, Long itemId) {
-        var item = items.findById(itemId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm đã mua."));
+        var item = items.findReviewItem(itemId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm đã mua."));
         checkPurchase(item, customerId);
         if (reviewRepository.existsByOrderItemId(itemId)) throw new IllegalArgumentException("Bạn đã đánh giá sản phẩm trong đơn này. Xem tại Đánh giá của tôi.");
         return item;
