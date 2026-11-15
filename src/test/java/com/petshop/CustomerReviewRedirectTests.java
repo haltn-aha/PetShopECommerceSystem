@@ -31,7 +31,7 @@ class CustomerReviewRedirectTests {
     void returnsOnlyToInternalCustomerPages(String redirect, String referer, String expected) {
         var request=new MockHttpServletRequest();request.setScheme("http");request.setServerName("localhost");request.setServerPort(8081);
         var form=new ReviewCreateDto();form.setRating(5);form.setComment("Good");
-        var controller=new CustomerReviewController(mock(ReviewService.class));
+        var controller=new CustomerReviewController(mock(ReviewService.class),mock(com.petshop.service.ProductThumbnailService.class));
         String result=controller.create(new CustomUserDetails(User.builder().id(1L).build()),1L,redirect,form,
                 new BeanPropertyBindingResult(form,"reviewForm"),new ExtendedModelMap(),new RedirectAttributesModelMap(),referer,request);
         // Same-origin absolute Referer is reduced to its local path.

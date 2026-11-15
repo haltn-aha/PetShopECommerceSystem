@@ -4,6 +4,13 @@
 <div layout:fragment="admin-header-title">Báo cáo doanh thu</div>
 <div layout:fragment="admin-content" class="report-page">
     <div class="mb-4"><h1 class="h4 mb-2">Báo cáo doanh thu</h1><p class="text-muted small mb-0">Đơn hoàn tất và đã thanh toán, theo ngày hoàn tất. Doanh thu tiền hàng đã trừ giảm giá; tổng thu bao gồm phí giao hàng.</p></div>
+    <div class="card p-4 mb-3"><span class="feedback-eyebrow mb-2">Chọn nhanh kỳ báo cáo</span><div class="d-flex flex-wrap gap-2">
+        <a th:href="@{/admin/reports/revenue(preset='all',groupBy=${groupBy})}" class="btn btn-sm btn-outline-primary">Toàn thời gian</a>
+        <a th:href="@{/admin/reports/revenue(preset='today',groupBy=${groupBy})}" class="btn btn-sm btn-outline-secondary">Hôm nay</a>
+        <a th:href="@{/admin/reports/revenue(preset='7days',groupBy=${groupBy})}" class="btn btn-sm btn-outline-secondary">7 ngày gần nhất</a>
+        <a th:href="@{/admin/reports/revenue(preset='30days',groupBy=${groupBy})}" class="btn btn-sm btn-outline-secondary">30 ngày gần nhất</a>
+        <a th:href="@{/admin/reports/revenue(preset='this_month',groupBy=${groupBy})}" class="btn btn-sm btn-outline-secondary">Tháng này</a>
+    </div><p class="feedback-meta mt-3 mb-0" th:text="${(preset == 'all' ? 'Toàn thời gian · ' : 'Kỳ đang xem · ') + #temporals.format(startDate,'dd/MM/yyyy') + ' – ' + #temporals.format(endDate,'dd/MM/yyyy')}"></p></div>
     <div class="card p-4 mb-4"><form method="get" class="row g-3 align-items-end">
         <div class="col-md-3"><label for="revenueStart" class="form-label">Từ ngày</label><input id="revenueStart" class="form-control" type="date" name="startDate" th:value="${startDate}" required></div>
         <div class="col-md-3"><label for="revenueEnd" class="form-label">Đến ngày</label><input id="revenueEnd" class="form-control" type="date" name="endDate" th:value="${endDate}" required></div>

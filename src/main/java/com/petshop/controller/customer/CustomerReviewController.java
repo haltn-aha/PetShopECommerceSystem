@@ -14,14 +14,20 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @Controller @RequiredArgsConstructor @RequestMapping("/customer/reviews")
 public class CustomerReviewController {
     private final ReviewService reviews;
+    private final com.petshop.service.ProductThumbnailService thumbnails;
     @GetMapping
     public String list(@AuthenticationPrincipal CustomUserDetails user, @RequestParam(defaultValue="0") int page, Model model) {
-        model.addAttribute("reviews", reviews.myReviews(user.getId(), com.petshop.util.PageRequests.bounded(page,10)));
+        var result = reviews.myReviews(user.getId(), com.petshop.util.PageRequests.bounded(page,10));
+        model.addAttribute("reviews", result);
+        model.addAttribute("reviewImages", thumbnails.forOrderItems(result.stream().map(r -> r.getOrderItem().getId()).toList()));
         return "customer/reviews";
     }
     @GetMapping("/create")
     public String form(@AuthenticationPrincipal CustomUserDetails user, @RequestParam Long orderItemId, Model model, RedirectAttributes flash) {
-        try { model.addAttribute("item", reviews.eligibleItem(user.getId(), orderItemId)); }
+        try {
+            model.addAttribute("item", reviews.eligibleItem(user.getId(), orderItemId));
+            model.addAttribute("reviewImages", thumbnails.forOrderItems(java.util.List.of(orderItemId)));
+        }
         catch (IllegalArgumentException e) { flash.addFlashAttribute("errorMessage", e.getMessage());return "redirect:/customer/reviews"; }
         model.addAttribute("reviewForm",new ReviewCreateDto());return "customer/review-form";
     }
@@ -42,6 +48,9 @@ public class CustomerReviewController {
                 return "redirect:" + target;
             }
             reviews.createReview(user.getId(), orderItemId, form);
+            // The just-reviewed item is no longer eligible for the create form.
+            // Reopening it would replace the successful result with a duplicate-review error.
+            if (target.startsWith("/customer/reviews/create")) target = "/customer/reviews";
             flash.addFlashAttribute("successMessage", "Cảm ơn bạn! Đã gửi đánh giá sản phẩm thành công.");
         } catch (IllegalArgumentException e) {
             flash.addFlashAttribute("errorMessage", e.getMessage());

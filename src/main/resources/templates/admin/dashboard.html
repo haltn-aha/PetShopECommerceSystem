@@ -17,7 +17,7 @@
             <p class="text-muted small mb-0">Theo dõi các chỉ số tài chính, bán hàng và công việc cần xử lý.</p>
         </div>
         <div class="d-flex gap-2">
-            <a th:href="@{/admin/reports/revenue}" class="btn btn-outline-primary d-flex align-items-center gap-1">
+            <a th:href="@{/admin/reports/revenue(preset='all')}" class="btn btn-outline-primary d-flex align-items-center gap-1">
                 <i class="bi bi-graph-up"></i> Báo Cáo Chi Tiết
             </a>
         </div>
@@ -61,13 +61,13 @@
         <div class="col-xl-3 col-sm-6">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                 <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small text-uppercase fw-bold">Tổng Doanh Thu</span>
+                    <span class="text-muted small text-uppercase fw-bold">Doanh thu toàn thời gian</span>
                     <div class="bg-success bg-opacity-10 text-success p-2 rounded-3">
                         <i class="bi bi-cash-stack fs-5"></i>
                     </div>
                 </div>
                 <h3 class="fw-bold mb-1 text-success" th:text="${#numbers.formatDecimal(stats.totalRevenue, 0, 'POINT', 0, 'COMMA') + ' đ'}">0 đ</h3>
-                <span class="small text-muted">Từ các đơn hàng hoàn tất</span>
+                <span class="small text-muted">Đơn hoàn tất, đã thanh toán · tiền hàng sau giảm giá, không gồm phí giao hàng</span>
             </div>
         </div>
 
@@ -116,7 +116,7 @@
         <h6 class="fw-bold text-uppercase text-secondary small mb-3">Hiệu Suất Trong Ngày Hôm Nay</h6>
         <div class="row g-3 text-center">
             <div class="col-md-4 border-end">
-                <span class="text-muted small d-block">Doanh Thu Hôm Nay</span>
+                <a th:href="@{/admin/reports/revenue(preset='today')}" class="text-muted small d-block">Doanh thu hôm nay <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
                 <h4 class="fw-bold text-success mb-0" th:text="${#numbers.formatDecimal(stats.todayRevenue, 0, 'POINT', 0, 'COMMA') + ' đ'}">0 đ</h4>
             </div>
             <div class="col-md-4 border-end">
@@ -202,7 +202,7 @@
             <a th:href="@{/admin/users/create}" class="btn btn-outline-primary"><i class="bi bi-person-plus me-1"></i> Cấp tài khoản nhân viên</a>
             <a th:href="@{/admin/vouchers}" class="btn btn-outline-success"><i class="bi bi-ticket-perforated me-1"></i> Quản lý voucher</a>
             <a th:href="@{/admin/vouchers/create}" class="btn btn-outline-success"><i class="bi bi-plus-circle me-1"></i> Tạo voucher mới</a>
-            <a th:href="@{/admin/reports/revenue}" class="btn btn-outline-danger"><i class="bi bi-graph-up me-1"></i> Báo cáo doanh thu</a>
+            <a th:href="@{/admin/reports/revenue(preset='all')}" class="btn btn-outline-danger"><i class="bi bi-graph-up me-1"></i> Báo cáo doanh thu</a>
             <a th:href="@{/staff/products/low-stock}" class="btn btn-outline-warning"><i class="bi bi-exclamation-diamond me-1"></i> Cảnh báo hết hàng</a>
         </div>
     </div>

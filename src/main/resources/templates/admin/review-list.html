@@ -69,7 +69,7 @@
                         </div>
                     </div>
                     <h4 class="fw-bold text-warning-emphasis mb-1" th:text="${hiddenCount}">0</h4>
-                    <span class="text-muted small">Đã ẩn do vi phạm / spam</span>
+                    <span class="text-muted small">Không hiển thị công khai</span>
                 </div>
             </div>
         </div>
@@ -84,7 +84,7 @@
                         </div>
                     </div>
                     <h4 class="fw-bold text-dark mb-1">
-                        <span th:text="${#numbers.formatDecimal(avgRating, 1, 'POINT', 1, 'POINT')}">5.0</span>
+                        <span th:text="${#numbers.formatDecimal(avgRating, 1, 'POINT', 1, 'COMMA')}">5,0</span>
                         <span class="fs-6 text-warning">★</span>
                     </h4>
                     <span class="text-muted small">Mức độ hài lòng chung</span>
@@ -136,120 +136,51 @@
         </div>
     </div>
 
-    <!-- Review Table Card -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
-        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold mb-0">Danh Sách Phản Hồi Từ Khách Hàng</h5>
-            <span class="badge bg-secondary-subtle text-secondary" th:text="${reviews.totalElements + ' đánh giá'}">0 đánh giá</span>
+    <div class="feedback-management-list">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 class="h6 mb-0">Đánh giá từ khách hàng</h2>
+            <span class="badge bg-secondary-subtle text-secondary" th:text="${reviews.totalElements + ' kết quả phù hợp'}"></span>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4" style="width: 70px;">ID</th>
-                        <th>Khách Hàng</th>
-                        <th>Sản Phẩm Đã Mua</th>
-                        <th class="text-center" style="width: 140px;">Đánh Giá</th>
-                        <th>Nội Dung Nhận Xét</th>
-                        <th>Thời Gian</th>
-                        <th class="text-center">Trạng Thái</th>
-                        <th class="text-end pe-4">Thao Tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:if="${reviews.empty}">
-                        <td colspan="8" class="text-center py-5 text-muted">
-                            <i class="bi bi-chat-square-dots display-6 d-block mb-2 text-secondary"></i>
-                            Không tìm thấy đánh giá nào phù hợp với bộ lọc hiện tại.
-                        </td>
-                    </tr>
-                    <tr th:each="r : ${reviews.content}">
-                        <td class="ps-4 fw-semibold text-muted" th:text="'#' + ${r.id}">#1</td>
-                        <td>
-                            <div class="fw-semibold text-dark" th:text="${r.customer.fullName}">Nguyễn Văn Khách</div>
-                            <small class="text-muted" th:text="${r.customer.email}">customer@petshop.vn</small>
-                        </td>
-                        <td>
-                            <div class="fw-semibold text-dark text-truncate" style="max-width: 200px;"
-                                 th:text="${r.orderItem.variant.product.name}">Hạt Royal Canin Poodle Adult</div>
-                            <small class="badge bg-light text-secondary border"
-                                   th:text="${r.orderItem.variant.variantName}">Túi 1.5kg</small>
-                        </td>
-                        <td class="text-center">
-                            <div class="text-warning fs-6">
-                                <span th:each="i : ${#numbers.sequence(1, r.rating)}">★</span>
-                                <span th:if="${r.rating < 5}" th:each="i : ${#numbers.sequence(r.rating + 1, 5)}" class="text-muted opacity-25">★</span>
-                            </div>
-                            <small class="fw-bold text-secondary" th:text="${r.rating + '/5 sao'}">5/5 sao</small>
-                        </td>
-                        <td>
-                            <p class="mb-0 text-dark small fst-italic" th:text="${r.comment != null and !r.comment.isBlank() ? r.comment : '(Không có lời bình luận)'}">
-                                Sản phẩm rất chất lượng, cún nhà mình ăn rất thích!
-                            </p>
-                            <div th:if="${r.replyText != null}" class="border-start border-3 ps-3 mt-3">
-                                <strong class="small">Phản hồi từ PetShop</strong>
-                                <small class="d-block text-muted" th:text="${r.repliedBy.fullName + ' · ' + #temporals.format(r.repliedAt,'dd/MM/yyyy HH:mm')}"></small>
-                                <p class="small mb-0" style="white-space:pre-wrap;overflow-wrap:anywhere" th:text="${r.replyText}"></p>
-                            </div>
-                            <details th:if="${r.replyText == null}" class="mt-2"
-                                     th:open="${replyReviewId != null and replyReviewId == r.id}">
-                                <summary class="text-primary">Trả lời đánh giá</summary>
-                                <form th:action="@{/admin/reviews/{id}/reply(id=${r.id})}" method="post" class="mt-2" style="min-width:240px">
-                                    <input type="hidden" name="keyword" th:value="${keyword}">
-                                    <input type="hidden" name="rating" th:value="${rating}">
-                                    <input type="hidden" name="status" th:value="${status}">
-                                    <input type="hidden" name="page" th:value="${reviews.number}">
-                                    <input type="hidden" name="size" th:value="${reviews.size}">
-                                    <label th:for="${'reply-' + r.id}" class="form-label small">Nội dung trả lời (tối đa 1000 ký tự)</label>
-                                    <textarea th:id="${'reply-' + r.id}" name="replyText" maxlength="1000" rows="3" required class="form-control"
-                                              th:text="${replyReviewId != null and replyReviewId == r.id ? replyDraft : ''}"></textarea>
-                                    <div class="form-text">Mỗi đánh giá chỉ trả lời một lần. Kiểm tra nội dung trước khi gửi.</div>
-                                    <button type="submit" class="btn btn-sm btn-primary mt-2">Gửi trả lời</button>
-                                </form>
-                            </details>
-                        </td>
-                        <td class="small text-muted" th:text="${#temporals.format(r.createdAt, 'dd/MM/yyyy HH:mm')}">
-                            28/09/2026 14:30
-                        </td>
-                        <td class="text-center">
-                            <span th:if="${r.status.name() == 'VISIBLE'}"
-                                  class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
-                                <i class="bi bi-check-circle me-1"></i>Hiển Thị
-                            </span>
-                            <span th:if="${r.status.name() == 'HIDDEN'}"
-                                  class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2">
-                                <i class="bi bi-eye-slash me-1"></i>Đã Ẩn
-                            </span>
-                        </td>
-                        <td class="text-end pe-4">
-                            <form th:action="@{/admin/reviews/{id}/toggle-status(id=${r.id})}" method="post" class="d-inline">
-                                <input type="hidden" name="keyword" th:value="${keyword}">
-                                <input type="hidden" name="rating" th:value="${rating}">
-                                <input type="hidden" name="status" th:value="${status}">
-                                <input type="hidden" name="page" th:value="${reviews.number}">
-
-                                <input type="hidden" name="size" th:value="${reviews.size}">
-
-                                <button th:if="${r.status.name() == 'VISIBLE'}"
-                                        type="submit"
-                                        class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
-                                        title="Ẩn đánh giá khỏi trang sản phẩm">
-                                    <i class="bi bi-eye-slash"></i> Ẩn
-                                </button>
-
-                                <button th:if="${r.status.name() == 'HIDDEN'}"
-                                        type="submit"
-                                        class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
-                                        title="Hiển thị lại đánh giá này">
-                                    <i class="bi bi-eye"></i> Hiện
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
+        <div th:if="${reviews.empty}" class="card feedback-empty"><i class="bi bi-chat-square-dots" aria-hidden="true"></i><h2 class="h5 mt-3">Chưa có đánh giá phù hợp</h2><p class="text-muted mb-0">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p></div>
+        <article th:each="r : ${reviews.content}" class="card feedback-card feedback-admin-card mb-3" th:id="${'feedback-' + r.id}">
+            <div class="feedback-admin-header">
+                <div th:replace="~{fragments/feedback :: purchase(${r.orderItem},${reviewImages[r.orderItem.id]})}"></div>
+                <div class="feedback-admin-rating"><div th:replace="~{fragments/feedback :: rating(${r.rating})}"></div><span class="feedback-meta" th:text="${'Đánh giá #' + r.id}"></span></div>
+            </div>
+            <div class="feedback-buyer">
+                <div class="feedback-buyer-avatar" aria-hidden="true"><i class="bi bi-person"></i></div>
+                <div><strong th:text="${r.customer.fullName}"></strong><span class="feedback-meta d-block" th:text="${r.customer.email}"></span></div>
+                <span class="feedback-meta feedback-created" th:text="${#temporals.format(r.createdAt,'dd/MM/yyyy HH:mm')}"></span>
+            </div>
+            <p class="feedback-comment" th:text="${r.comment != null and !r.comment.isBlank() ? r.comment : '(Không có lời bình luận)'}"></p>
+            <div th:replace="~{fragments/feedback :: reply(${r},true)}"></div>
+            <details th:if="${r.replyText == null}" class="feedback-reply-editor" th:open="${replyReviewId != null and replyReviewId == r.id}">
+                <summary><i class="bi bi-reply me-2" aria-hidden="true"></i>Trả lời đánh giá</summary>
+                <form th:action="@{/admin/reviews/{id}/reply(id=${r.id})}" method="post" class="mt-3">
+                    <input type="hidden" name="keyword" th:value="${keyword}">
+                    <input type="hidden" name="rating" th:value="${rating}">
+                    <input type="hidden" name="status" th:value="${status}">
+                    <input type="hidden" name="page" th:value="${reviews.number}">
+                    <input type="hidden" name="size" th:value="${reviews.size}">
+                    <p class="feedback-meta">Đang trả lời đánh giá cho <strong th:text="${r.orderItem.productNameSnapshot}"></strong><span th:text="${' · ' + r.orderItem.variantNameSnapshot}"></span></p>
+                    <label th:for="${'reply-' + r.id}" class="form-label">Phản hồi của cửa hàng</label>
+                    <textarea th:id="${'reply-' + r.id}" name="replyText" maxlength="1000" rows="4" required class="form-control"
+                              th:data-feedback-counter="${'reply-count-' + r.id}" th:aria-describedby="${'reply-count-' + r.id}"
+                              placeholder="Cảm ơn khách hàng và trả lời cụ thể về trải nghiệm với sản phẩm."
+                              th:text="${replyReviewId != null and replyReviewId == r.id ? replyDraft : ''}"></textarea>
+                    <div class="feedback-field-help"><span>Mỗi đánh giá chỉ trả lời một lần. Kiểm tra nội dung trước khi gửi.</span><span th:id="${'reply-count-' + r.id}">0 / 1000</span></div>
+                    <button type="submit" class="btn btn-primary btn-sm mt-2"><i class="bi bi-send me-2" aria-hidden="true"></i>Gửi trả lời</button>
+                </form>
+            </details>
+            <footer class="feedback-card-footer">
+                <span class="feedback-status" th:classappend="${r.status.name() == 'VISIBLE' ? 'feedback-status-visible' : 'feedback-status-hidden'}"><i class="bi" th:classappend="${r.status.name() == 'VISIBLE' ? 'bi-eye' : 'bi-eye-slash'}" aria-hidden="true"></i><span th:text="${r.status.name() == 'VISIBLE' ? 'Đang hiển thị công khai' : 'Đã ẩn khỏi cửa hàng'}"></span></span>
+                <form th:action="@{/admin/reviews/{id}/toggle-status(id=${r.id})}" method="post">
+                    <input type="hidden" name="keyword" th:value="${keyword}"><input type="hidden" name="rating" th:value="${rating}"><input type="hidden" name="status" th:value="${status}"><input type="hidden" name="page" th:value="${reviews.number}"><input type="hidden" name="size" th:value="${reviews.size}">
+                    <button th:if="${r.status.name() == 'VISIBLE'}" type="submit" class="btn btn-sm btn-outline-warning"><i class="bi bi-eye-slash me-1" aria-hidden="true"></i>Ẩn đánh giá</button>
+                    <button th:if="${r.status.name() == 'HIDDEN'}" type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-eye me-1" aria-hidden="true"></i>Hiển thị lại</button>
+                </form>
+            </footer>
+        </article>
         <!-- Pagination -->
         <div th:if="${reviews.totalPages > 1}" class="card-footer bg-white py-3 border-top d-flex justify-content-between align-items-center">
             <span class="small text-muted">

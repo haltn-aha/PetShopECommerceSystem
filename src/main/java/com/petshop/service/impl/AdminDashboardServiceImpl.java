@@ -31,10 +31,12 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     @Override
     @Transactional(readOnly = true)
     public AdminDashboardDto getDashboardStats() {
-        LocalDateTime startOfToday = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
-        LocalDateTime endOfToday = LocalDate.now().plusDays(1).atStartOfDay();
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfToday = today.atStartOfDay();
+        LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();
 
-        BigDecimal totalRevenue = orderRepository.sumTotalAmountByOrderStatus(OrderStatus.COMPLETED);
+        BigDecimal totalRevenue = orderRepository.sumRevenueBetween(OrderStatus.COMPLETED,
+                LocalDate.of(1, 1, 1).atStartOfDay(), endOfToday);
         if (totalRevenue == null) {
             totalRevenue = BigDecimal.ZERO;
         }
@@ -56,7 +58,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         List<Order> recentOrders = orderRepository.findTop5ByOrderByCreatedAtDesc();
 
         // 7-day revenue trend
-        LocalDateTime sevenDaysAgo = LocalDateTime.of(LocalDate.now().minusDays(6), LocalTime.MIN);
+        LocalDateTime sevenDaysAgo = today.minusDays(6).atStartOfDay();
         List<Object[]> stats = orderRepository.getRevenueStatistics(sevenDaysAgo, endOfToday);
         Map<String, BigDecimal> revMap = new HashMap<>();
         for (Object[] row : stats) {
@@ -70,7 +72,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         List<BigDecimal> chartData = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
         for (int i = 6; i >= 0; i--) {
-            LocalDate d = LocalDate.now().minusDays(i);
+            LocalDate d = today.minusDays(i);
             chartLabels.add(d.format(fmt));
             BigDecimal rev = revMap.getOrDefault(d.toString(), BigDecimal.ZERO);
             chartData.add(rev);
